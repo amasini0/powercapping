@@ -62,3 +62,65 @@ config = CLUSTER_CONFIGS[machine]
 # Global HPCCM config for package installations
 hpccm.config.set_cpu_target(config["march"])
 hpccm.config.set_linux_distro(config["base_os"])
+
+# Set base image
+Stage0 += baseimage(
+    image="docker.io/{}@{}".format(config["base_image"], config["digest_devel"]),
+    _distro=config["base_os"],
+    _arch=config["arch"],
+    _as="devel",
+)
+
+# Install network stack components and utilities
+netconfig = config["network_stack"]
+
+## Install Mellanox OFED userspace libraries
+mlnx_ofed = bb.mlnx_ofed(version=netconfig["mlnx_ofed"])
+Stage0 += mlnx_ofed
+
+## Install KNEM headers
+if netconfig["knem"]:
+    knem_prefix = "/usr/local/knem"
+    knem = bb.knem(prefix=knem_prefix)
+    Stage0 += knem
+else:
+    knem_prefix = False
+
+## Install XPMEM userspace library
+if netconfig["xpmem"]:
+    xpmem_prefix = "/usr/local/xpmem"
+    xpmem = bb.xpmem(prefix=xpmem_prefix)
+    Stage0 += xpmem
+else:
+    xpmem_prefix = False
+
+## Install UCX
+ucx_prefix = "/usr/local/ucx"
+ucx = bb.ucx(
+    prefix=ucx_prefix,
+    repository="https://github.com/openucx/ucx.git",
+    branch="v{}".format(netconfig["ucx"]),
+    cuda=True,
+    ofed=True,
+    knem=knem_prefix,
+    xpmem=xpmem_prefix,
+)
+Stage0 += ucx
+
+## Install PMIx
+match netconfig["pmix"]:
+    case "internal":
+        pmix_prefix = "internal"
+    case version:
+        pmix_prefix = "/usr/local/pmix"
+        pmix = bb.pmix(prefix=pmix_prefix, version=netconfig["pmix"])
+        Stage0 += pmix
+
+## Install OpenMPI
+ompi = bb.openmpi(
+    prefix="/usr/local/openmpi",
+    version=netconfig["ompi"],
+    ucx=ucx_prefix,
+    pmix=pmix_prefix,
+)
+Stage0 += ompi
