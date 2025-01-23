@@ -1,0 +1,4 @@
+archspec==0.2.5
+hpccm==24.10.0
+packaging==24.2
+six==1.17.0
