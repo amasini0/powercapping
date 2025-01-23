@@ -3,6 +3,13 @@ From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56f
 %post
     . /.singularity.d/env/10-docker*.sh
 
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
+
 # Mellanox OFED version 24.04-0.7.0.0
 %post
     apt-get update -y

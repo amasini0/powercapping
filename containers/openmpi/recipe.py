@@ -71,6 +71,10 @@ Stage0 += baseimage(
     _as="devel",
 )
 
+# Install Python
+python = bb.python(python2=False)
+Stage0 += python
+
 # Install network stack components and utilities
 netconfig = config["network_stack"]
 
