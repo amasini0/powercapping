@@ -142,7 +142,7 @@ benches = bb.scif(name="benchmarks", _env=True)
 benches += bb.generic_cmake(
     repository="https://github.com/amasini0/powercapping.git",
     toolchain=ompi.toolchain,
-    directory="benchmarks",
+    directory="powercapping/benchmarks",
     prefix = "/scif/apps/benchmarks",
 )
 Stage0 += benches

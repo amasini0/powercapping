@@ -185,10 +185,10 @@ https://github.com/amasini0/powercapping.git
 %appinstall benchmarks
     for f in /.singularity.d/env/*; do . $f; done
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/powercapping.git powercapping && cd -
-    mkdir -p /var/tmp/benchmarks/build && cd /var/tmp/benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/scif/apps/benchmarks /var/tmp/benchmarks
-    cmake --build /var/tmp/benchmarks/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/benchmarks/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/benchmarks
+    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/scif/apps/benchmarks /var/tmp/powercapping/benchmarks
+    cmake --build /var/tmp/powercapping/benchmarks/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/powercapping/benchmarks/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/powercapping/benchmarks
 
 
 
