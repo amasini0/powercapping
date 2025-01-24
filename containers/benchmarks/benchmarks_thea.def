@@ -1,5 +1,8 @@
+# NOTE: this definition file depends on features only available in
+# Singularity 3.2 and later.
 BootStrap: docker
 From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56fb6d3c93fb8a82472816
+Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
 
@@ -167,28 +170,107 @@ From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56f
 %post
     export PATH=/usr/local/bin:$PATH
 
-# pip
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3-pip \
-        python3-setuptools \
-        python3-wheel
-    rm -rf /var/lib/apt/lists/*
+# https://github.com/amasini0/powercapping.git
 %post
     cd /
-    pip3 --no-cache-dir install scif
-
-
-%apphelp benchmarks
-https://github.com/amasini0/powercapping.git
-%appinstall benchmarks
-    for f in /.singularity.d/env/*; do . $f; done
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/powercapping.git powercapping && cd -
-    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/scif/apps/benchmarks /var/tmp/powercapping/benchmarks
+    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks /var/tmp/powercapping/benchmarks
     cmake --build /var/tmp/powercapping/benchmarks/build --target all -- -j$(nproc)
     cmake --build /var/tmp/powercapping/benchmarks/build --target install -- -j$(nproc)
     rm -rf /var/tmp/powercapping/benchmarks
 
+BootStrap: docker
+From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498
+%post
+    . /.singularity.d/env/10-docker*.sh
 
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
 
+# Mellanox OFED version 24.04-0.7.0.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/24.04-0.7.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ibverbs-providers \
+        ibverbs-utils \
+        libibmad-dev \
+        libibmad5 \
+        libibumad-dev \
+        libibumad3 \
+        libibverbs-dev \
+        libibverbs1 \
+        librdmacm-dev \
+        librdmacm1
+    rm -rf /var/lib/apt/lists/*
+
+# KNEM
+%files from devel
+    /usr/local/knem /usr/local/knem
+%environment
+    export CPATH=/usr/local/knem/include:$CPATH
+%post
+    export CPATH=/usr/local/knem/include:$CPATH
+
+# XPMEM
+%files from devel
+    /usr/local/xpmem /usr/local/xpmem
+%environment
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+
+# UCX
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libbinutils
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/ucx /usr/local/ucx
+%environment
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+%post
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+
+# OpenMPI
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        hwloc \
+        openssh-client
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/openmpi /usr/local/openmpi
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+
+# https://github.com/amasini0/powercapping.git
+%files from devel
+    /usr/local/benchmarks /usr/local/benchmarks

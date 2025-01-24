@@ -133,17 +133,20 @@ Stage0 += ompi
 cmake = bb.cmake(eula=True, version="3.27.8")
 Stage0 += cmake
 
-# Install scientific filesystem
-scif = bb.pip(pip="pip3", packages=["scif"])
-Stage0 += scif
-
-# Create a SCIF for the benchmarks app
-benches = bb.scif(name="benchmarks", _env=True)
-benches += bb.generic_cmake(
+# Compile benchmarks
+benches = bb.generic_cmake(
     repository="https://github.com/amasini0/powercapping.git",
-    toolchain=ompi.toolchain,
     directory="powercapping/benchmarks",
-    prefix = "/scif/apps/benchmarks",
+    prefix="/usr/local/benchmarks",
+    toolchain=ompi.toolchain,
 )
 Stage0 += benches
 
+
+# Create runtime image
+Stage1 += baseimage(
+    image="docker.io/{}@{}".format(config["base_image"], config["digest_runtime"]),
+    _distro=config["base_os"],
+    _arch=config["arch"],
+)
+Stage1 += Stage0.runtime()
