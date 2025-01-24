@@ -13,7 +13,7 @@ do {                                                                            
     }                                                                                                             \
 } while(0)
 
-int main(int arcg, char** argv) {
+int main(int argc, char** argv) {
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
@@ -46,7 +46,7 @@ int main(int arcg, char** argv) {
     for (size_t shift = 0; shift < 27; ++shift) {
 
         // Allocate and initialize buffer
-        constexpr int N = 1 << shift; // MPI wants an int here
+        const int N = 1 << shift; // MPI wants an int here
         double* buffer = new double[N];
 
         for (size_t i = 0; i < N; ++i) {
@@ -66,10 +66,10 @@ int main(int arcg, char** argv) {
         constexpr size_t timed_reps = 50;
 
         // Warm-up loop
-        for (size_t i = 0; i < warm_up; ++i) {
+        for (size_t i = 0; i < warm_up_reps; ++i) {
             if (rank == 0) {
                 MPI_Send(gpu_buffer, N, MPI_DOUBLE, 1, tag1, MPI_COMM_WORLD);
-                MPI_Recv(gpu_buffer, N, MPI_DOUBLE, 1, tag2, MPI_COMM_WORLS, &status);
+                MPI_Recv(gpu_buffer, N, MPI_DOUBLE, 1, tag2, MPI_COMM_WORLD, &status);
             } else if (rank == 1) {
                 MPI_Recv(gpu_buffer, N, MPI_DOUBLE, 0, tag1, MPI_COMM_WORLD, &status);
                 MPI_Send(gpu_buffer, N, MPI_DOUBLE, 0, tag2, MPI_COMM_WORLD);
@@ -83,7 +83,7 @@ int main(int arcg, char** argv) {
         for (size_t i = 0; i < timed_reps; ++i) {
             if (rank == 0) {
                 MPI_Send(buffer, N, MPI_DOUBLE, 1, tag1, MPI_COMM_WORLD);
-                MPI_Recv(buffer, N, MPI_DOUBLE, 1, tag2, MPI_COMM_WORLS, &status);
+                MPI_Recv(buffer, N, MPI_DOUBLE, 1, tag2, MPI_COMM_WORLD, &status);
             } else if (rank == 1) {
                 MPI_Recv(buffer, N, MPI_DOUBLE, 0, tag1, MPI_COMM_WORLD, &status);
                 MPI_Send(buffer, N, MPI_DOUBLE, 0, tag2, MPI_COMM_WORLD);
