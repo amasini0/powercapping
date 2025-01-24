@@ -174,7 +174,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/powercapping.git powercapping && cd -
-    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks /var/tmp/powercapping/benchmarks
+    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=90 /var/tmp/powercapping/benchmarks
     cmake --build /var/tmp/powercapping/benchmarks/build --target all -- -j$(nproc)
     cmake --build /var/tmp/powercapping/benchmarks/build --target install -- -j$(nproc)
     rm -rf /var/tmp/powercapping/benchmarks

@@ -138,7 +138,10 @@ benches = bb.generic_cmake(
     repository="https://github.com/amasini0/powercapping.git",
     directory="powercapping/benchmarks",
     prefix="/usr/local/benchmarks",
-    toolchain=ompi.toolchain,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_CUDA_ARCHITECTURES={}".format(config["cuda_arch"])
+    ],
 )
 Stage0 += benches
 
