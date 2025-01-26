@@ -47,6 +47,7 @@ CLUSTER_CONFIGS = {
     },
 }
 
+
 # Get correct config
 machine = USERARG.get("machine", "thea")
 
@@ -62,10 +63,6 @@ config = CLUSTER_CONFIGS[machine]
 hpccm.config.set_cpu_target(config["march"])
 hpccm.config.set_linux_distro(config["base_os"])
 
-################################################################################
-# DEVEL STAGE                                                                  #
-################################################################################
-
 # Set base image
 Stage0 += baseimage(
     image="docker.io/{}@{}".format(config["base_image"], config["digest_devel"]),
@@ -74,121 +71,9 @@ Stage0 += baseimage(
     _as="devel",
 )
 
-# Install CMake
-Stage0 += bb.cmake(eula=True, version="3.27.8")
-
 # Install Python
 python = bb.python(python2=False)
 Stage0 += python
-
-# Install LLVM
-# Passing _trunk_version="0.1" to force correct toolchain installation from upstream
-# repos, which otherwise fails due to incorrect package name specification
-llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
-Stage0 += llvm
-
-# match config["arch"]:
-#     case "aarch64":
-#         llvm_cpu_target = "AARCH64"
-#     case "x86_64":
-#         llvm_cpu_target = "X86"
-#     case _:
-#         raise RuntimeError("Invalid CPU architecture")
-
-# llvm = bb.generic_cmake(
-#     repository="https://github.com/llvm/llvm-project.git",
-#     branch="llvmorg-18.1.8",
-#     prefix="/usr/local/llvm",
-#     cmake_opts=[
-#         "-DCMAKE_BUILD_TYPE=Release",
-#         "-DLLVM_ENABLE_PROJECTS=clang,lld,polly",
-#         "-DLLVM_ENABLE_RUNTIMES=compiler-rt,openmp",
-#         "-DLLVM_TARGETS_TO_BUILD={};NVPTX".format(llvm_cpu_target),
-#         "-DLLVM_BUILD_LLVM_DYLIB=ON",
-#         "-DLLVM_ENABLE_ASSERTIONS=OFF",
-#         "-DLLVM_ENABLE_BINDINGS=OFF",
-#         "-DLLVM_ENABLE_DUMP=OFF",
-#         "-DLLVM_ENABLE_OCAMLDOC=OFF",
-#         "-DLLVM_INCLUDE_BENCHMARKS=OFF",
-#         "-DLLVM_INCLUDE_EXAMPLES=OFF",
-#         "-DLLVM_INCLUDE_TESTS=OFF",
-#         "-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF",
-#         "-DOPENMP_ENABLE_LIBOMPTARGET=OFF",
-#     ]
-# )
-
-# Stage0 += llvm
-# Stage0 += environment(
-#     variables={
-#         "PATH": "/usr/local/llvm/bin:$PATH",
-#         "CPATH": "/usr/local/llvm/include:$CPATH",
-#         "LIBRARY_PATH": "/usr/local/llvm/lib:$LIBRARY_PATH",
-#         "LD_LIBRARY_PATH": "/usr/local/llvm/lib:$LD_LIBRARY_PATH",
-#         "LLVM_HOME": "/usr/local/llvm",
-#         "LLVM_INC": "/usr/local/llvm/include",
-#         "LLVM_INCLUDE": "/usr/local/llvm/include",
-#         "LLVM_LIB": "/usr/local/llvm/lib",
-#         "CMAKE_PREFIX_PATH": "/usr/local/llvm",
-#     },
-#     _export=True
-# )
-
-# Install Boost
-boost = bb.boost(
-    version="1.86.0",
-    baseurl="https://archives.boost.io/release/1.86.0/source",  # Download from boost official archives
-    prefix="/usr/local/boost",
-    bootstrap_opts=[
-        "--with-libraries=fiber,context,atomic,filesystem",
-        "--show-libraries",
-    ],
-    b2_opts=[
-        "variant=release",
-        "threading=multi",
-        "link=shared",
-        "visibility=hidden",
-        'cxxflags="-std=c++17"',
-        "address-model=64",
-        "architecture={}".format(config["arch"].split("_")[0]),
-        "--with-fiber",
-        "--with-context",
-        "--with-atomic",
-        "--with-filesystem",
-        "--prefix=/usr/local/boost",
-    ],
-)
-Stage0 += boost
-
-# Install Git
-Stage0 += bb.packages(ospackages=["git"])
-
-# Install AdaptiveCpp
-adaptive_cpp_prefix = "/usr/local/acpp"
-adaptive_cpp = bb.generic_cmake(
-    repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
-    branch="v24.06.0",
-    prefix=adaptive_cpp_prefix,
-    cmake_opts=[
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
-        "-DDEFAULT_TARGETS=cuda:sm_{}".format(config["cuda_arch"]),
-    ],
-)
-
-Stage0 += adaptive_cpp
-Stage0 += environment(
-    variables={
-        "PATH": "{}/bin:$PATH".format(adaptive_cpp_prefix),
-        "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
-        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
-        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
-        "ACPP_HOME": adaptive_cpp_prefix,
-        "ACPP_INC": "{}/include".format(adaptive_cpp_prefix),
-        "ACPP_INCLUDE": "{}/include".format(adaptive_cpp_prefix),
-        "ACPP_LIB": "{}/lib".format(adaptive_cpp_prefix),
-        "CMAKE_PREFIX_PATH": adaptive_cpp_prefix,
-    }
-)
 
 # Install network stack components and utilities
 netconfig = config["network_stack"]
@@ -244,21 +129,135 @@ ompi = bb.openmpi(
 )
 Stage0 += ompi
 
+# Install CMake
+Stage0 += bb.cmake(eula=True, version="3.27.8")
+
+# Install Git
+Stage0 += bb.packages(ospackages=["git"])
+
+# Install AdaptiveCPP for SYCL support
+# Two dependencies required: LLVM, Boost
+
+## Install LLVM
+## Passing _trunk_version="0.1" to force correct toolchain installation from upstream
+## repos, which otherwise fails due to incorrect package name specification
+llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
+Stage0 += llvm
+
+## Install Boost
+## Force installation from official archives (see baseurl)
+boost = bb.boost(
+    version="1.86.0",
+    baseurl="https://archives.boost.io/release/1.86.0/source",
+    prefix="/usr/local/boost",
+    bootstrap_opts=[
+        "--with-libraries=fiber,context,atomic,filesystem",
+        "--show-libraries",
+    ],
+    b2_opts=[
+        "variant=release",
+        "threading=multi",
+        "link=shared",
+        "visibility=hidden",
+        'cxxflags="-std=c++17"',
+        "address-model=64",
+        "architecture={}".format(config["arch"].split("_")[0]),
+        "--with-fiber",
+        "--with-context",
+        "--with-atomic",
+        "--with-filesystem",
+        "--prefix=/usr/local/boost",
+    ],
+)
+Stage0 += boost
+
+## Install AdaptiveCpp
+adaptive_cpp_prefix = "/usr/local/acpp"
+adaptive_cpp = bb.generic_cmake(
+    repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
+    branch="v24.06.0",
+    prefix=adaptive_cpp_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
+        "-DDEFAULT_TARGETS=cuda:sm_{}".format(config["cuda_arch"]),
+    ],
+)
+Stage0 += adaptive_cpp
+
+## Export environment to make AdaptiveCPP visible
+Stage0 += environment(
+    variables={
+        "PATH": "{}/bin:$PATH".format(adaptive_cpp_prefix),
+        "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
+        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
+        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
+        "ACPP_HOME": adaptive_cpp_prefix,
+        "ACPP_INC": "{}/include".format(adaptive_cpp_prefix),
+        "ACPP_INCLUDE": "{}/include".format(adaptive_cpp_prefix),
+        "ACPP_LIB": "{}/lib".format(adaptive_cpp_prefix),
+        "CMAKE_PREFIX_PATH": adaptive_cpp_prefix,
+    }
+)
+
+
 # Install parallel HDF5
+## Monkey patch download method to get correct version
+def download_latest(self):
+    """Construct the series of shell commands, i.e., fill in
+    self.__commands"""
+    # The download URL has the format contains vMAJOR.MINOR in the
+    # path and the tarball contains MAJOR.MINOR.REVISION, so pull
+    # apart the full version to get the MAJOR and MINOR components.
+    import re
+
+    match = re.match(r"(?P<major>\d+)\.(?P<minor>\d+)", self._hdf5__version)
+    major_minor = "v{0}_{1}".format(
+        match.groupdict()["major"], match.groupdict()["minor"]
+    )
+    tarball = "hdf5-{}.tar.gz".format(self._hdf5__version)
+    self._hdf5__url = "{0}/{1}/v{2}/downloads/{3}".format(
+        self._hdf5__baseurl, major_minor, self._hdf5__version.replace(".", "_"), tarball
+    )
+
+
+setattr(bb.hdf5, "_hdf5__download", download_latest)
+
 hdf5_prefix = "/usr/local/hdf5"
+hdf5_toolchain = ompi.toolchain
+hdf5_toolchain.CFLAGS = "-fPIC"
 hdf5 = bb.hdf5(
-    toolchain=ompi.toolchain,
+    baseurl="https://support.hdfgroup.org/releases/hdf5",
+    version="1.14.5",  # tested only with 1.14.5
+    toolchain=hdf5_toolchain,
     prefix=hdf5_prefix,
-    version="1.14.5",
-    configure_opts=[],  # remove --enable-fortran and --enable-cxx
+    configure_opts=[],  # left empty to remove --enable-fortran and --enable-cxx
     enable_parallel=True,
     disable_shared=True,
     with_zlib=True,
 )
 Stage0 += hdf5
 
+# Install NetCDF
+netcdf_prefix = "/usr/local/netcdf"
+netcdf_toolchain = ompi.toolchain
+netcdf_toolchain.CFLAGS = "-fPIC -I{}/include".format(hdf5_prefix)
+netcdf_toolchain.LDFLAGS = "-L{}/lib".format(hdf5_prefix)
+netcdf = bb.netcdf(
+    version="4.9.2",
+    toolchain=netcdf_toolchain,
+    prefix=netcdf_prefix,
+    cxx=False,
+    fortran=False,
+    disable_shared=True,
+    disable_dap=True,
+)
+Stage0 += netcdf
+
+
 
 # Install Eigen
+
 
 # Install easi
 
@@ -266,25 +265,9 @@ Stage0 += hdf5
 
 # Install ParMETIS
 
-# Install NetCDF
 
 # Install ASAGI
 
 # Install gemmforge
 
 # Install chainforge
-
-
-################################################################################
-# RUNTIME STAGE                                                                #
-################################################################################
-
-# Stage1 += baseimage(
-#     image="{}@{}".format(config["base_image"], config["digest_runtime"]),
-#     _distro=config["base_os"],
-#     _arch=config["arch"]
-# )
-# Stage1 += python.runtime()
-# Stage1 += llvm.runtime()
-# Stage1 += boost.runtime()
-# Stage1 += adaptive_cpp.runtime()
