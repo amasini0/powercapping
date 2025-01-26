@@ -1,5 +1,8 @@
+# NOTE: this definition file depends on features only available in
+# Singularity 3.2 and later.
 BootStrap: docker
 From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56fb6d3c93fb8a82472816
+Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
 

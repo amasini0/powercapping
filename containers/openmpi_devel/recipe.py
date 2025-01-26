@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, environment
+from hpccm.primitives import baseimage
 
 CLUSTER_CONFIGS = {
     "leonardo": {
