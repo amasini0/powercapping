@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, environment
+from hpccm.primitives import baseimage, environment, shell
 
 CLUSTER_CONFIGS = {
     "leonardo": {
@@ -173,6 +173,17 @@ Stage0 += boost
 
 ## Install AdaptiveCpp
 adaptive_cpp_prefix = "/usr/local/acpp"
+adaptive_cpp_env = {
+    "PATH": "{}/bin:$PATH".format(adaptive_cpp_prefix),
+    "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
+    "ACPP_HOME": adaptive_cpp_prefix,
+    "ACPP_INC": "{}/include".format(adaptive_cpp_prefix),
+    "ACPP_INCLUDE": "{}/include".format(adaptive_cpp_prefix),
+    "ACPP_LIB": "{}/lib".format(adaptive_cpp_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(adaptive_cpp_prefix),
+}
 adaptive_cpp = bb.generic_cmake(
     repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
     branch="v24.06.0",
@@ -182,23 +193,10 @@ adaptive_cpp = bb.generic_cmake(
         "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
         "-DDEFAULT_TARGETS=cuda:sm_{}".format(config["cuda_arch"]),
     ],
+    devel_environment=adaptive_cpp_env,
+    runtime_environment=adaptive_cpp_env,
 )
 Stage0 += adaptive_cpp
-
-## Export environment to make AdaptiveCPP visible
-Stage0 += environment(
-    variables={
-        "PATH": "{}/bin:$PATH".format(adaptive_cpp_prefix),
-        "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
-        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
-        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
-        "ACPP_HOME": adaptive_cpp_prefix,
-        "ACPP_INC": "{}/include".format(adaptive_cpp_prefix),
-        "ACPP_INCLUDE": "{}/include".format(adaptive_cpp_prefix),
-        "ACPP_LIB": "{}/lib".format(adaptive_cpp_prefix),
-        "CMAKE_PREFIX_PATH": adaptive_cpp_prefix,
-    }
-)
 
 
 # Install parallel HDF5
@@ -222,7 +220,6 @@ def download_latest(self):
 
 
 setattr(bb.hdf5, "_hdf5__download", download_latest)
-
 hdf5_prefix = "/usr/local/hdf5"
 hdf5_toolchain = ompi.toolchain
 hdf5_toolchain.CFLAGS = "-fPIC"
@@ -254,19 +251,73 @@ netcdf = bb.netcdf(
 )
 Stage0 += netcdf
 
-
+# Install ParMETIS
+parmetis_prefix = "/usr/local/parmetis"
+parmetis_env = {
+    "PATH": "{}/bin:$PATH".format(parmetis_prefix),
+    "CPATH": "{}/include:$CPATH".format(parmetis_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(parmetis_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(parmetis_prefix),
+    "PARMETIS_INC": "{}/include".format(parmetis_prefix),
+    "PARMETIS_INCLUDE": "{}/include".format(parmetis_prefix),
+    "PARMETIS_LIB": "{}/lib".format(parmetis_prefix),
+}
+parmetis = bb.generic_build(
+    url="https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz",
+    prefix=parmetis_prefix,
+    build=[
+        "sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g' ./metis/include/metis.h",
+        "CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort make config prefix={}".format(
+            parmetis_prefix
+        ),
+        "make -j$(nproc)",
+        "make -j$(nproc) install",
+        "cp ./build/Linux-*/libmetis/libmetis.a {}/lib".format(parmetis_prefix),
+        "cp ./metis/include/metis.h {}/include".format(parmetis_prefix),
+    ],
+    devel_environment=parmetis_env,
+    runtime_environment=parmetis_env,
+)
+Stage0 += parmetis
 
 # Install Eigen
+eigen_prefix = "/usr/local/eigen"
+eigen_env = {
+    "CPATH": "{}/include:$CPATH".format(eigen_prefix),
+    "EIGEN_INC": "{}/include".format(eigen_prefix),
+    "EIGEN_INCLUDE": "{}/include".format(eigen_prefix),
+}
+eigen = bb.generic_cmake(
+    url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+    toolchain=ompi.toolchain,
+    prefix=eigen_prefix,
+    devel_environment=eigen_env,
+)
+Stage0 += eigen
 
+# Install libxsmm
+libxsmm_prefix = "/usr/local/libxsmm"
+libxsmm_env = {"PATH": "{}/bin:$PATH".format(libxsmm_prefix)}
+libxsmm = bb.generic_build(
+    repository="https://github.com/libxsmm/libxsmm.git",
+    branch="1.17",
+    prefix=libxsmm_prefix,
+    build=[
+        "make -j$(nproc) generator",
+        "mkdir -p {}/bin".format(libxsmm_prefix),
+        "cp ./bin/libxsmm_gemm_generator {}/bin".format(libxsmm_prefix),
+    ],
+    devel_environment=libxsmm_env,
+    runtime_environment=libxsmm_env,
+)
+Stage0 += libxsmm
+
+# Install ASAGI
+asagi_prefix = "/usr/local/asagi"
 
 # Install easi
 
-# Install libxsmm / PSpaMM
-
-# Install ParMETIS
-
-
-# Install ASAGI
+# Install PSpaMM
 
 # Install gemmforge
 
