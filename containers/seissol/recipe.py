@@ -3,6 +3,7 @@
 import hpccm
 import hpccm.building_blocks as bb
 from hpccm.primitives import baseimage, environment, shell
+import hpccm.primitives
 
 CLUSTER_CONFIGS = {
     "leonardo": {
@@ -129,11 +130,10 @@ ompi = bb.openmpi(
 )
 Stage0 += ompi
 
-# Install CMake
+# Install build tools (CMake, Git, pkgconf)
 Stage0 += bb.cmake(eula=True, version="3.27.8")
+Stage0 += bb.packages(ospackages=["git", "pkgconf"])
 
-# Install Git
-Stage0 += bb.packages(ospackages=["git"])
 
 # Install AdaptiveCPP for SYCL support
 # Two dependencies required: LLVM, Boost
@@ -178,11 +178,7 @@ adaptive_cpp_env = {
     "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
-    "ACPP_HOME": adaptive_cpp_prefix,
-    "ACPP_INC": "{}/include".format(adaptive_cpp_prefix),
-    "ACPP_INCLUDE": "{}/include".format(adaptive_cpp_prefix),
-    "ACPP_LIB": "{}/lib".format(adaptive_cpp_prefix),
-    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(adaptive_cpp_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(adaptive_cpp_prefix),
 }
 adaptive_cpp = bb.generic_cmake(
     repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
@@ -200,7 +196,7 @@ Stage0 += adaptive_cpp
 
 
 # Install parallel HDF5
-## Monkey patch download method to get correct version
+## Monkey patch building block to get latest version
 def download_latest(self):
     """Construct the series of shell commands, i.e., fill in
     self.__commands"""
@@ -220,6 +216,8 @@ def download_latest(self):
 
 
 setattr(bb.hdf5, "_hdf5__download", download_latest)
+
+## Install building block
 hdf5_prefix = "/usr/local/hdf5"
 hdf5_toolchain = ompi.toolchain
 hdf5_toolchain.CFLAGS = "-fPIC"
@@ -234,6 +232,7 @@ hdf5 = bb.hdf5(
     with_zlib=True,
 )
 Stage0 += hdf5
+
 
 # Install NetCDF
 netcdf_prefix = "/usr/local/netcdf"
@@ -250,6 +249,13 @@ netcdf = bb.netcdf(
     disable_dap=True,
 )
 Stage0 += netcdf
+Stage0 += environment(
+    variables={
+        "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(netcdf_prefix),
+        "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(netcdf_prefix),
+    }
+)
+
 
 # Install ParMETIS
 parmetis_prefix = "/usr/local/parmetis"
@@ -258,9 +264,6 @@ parmetis_env = {
     "CPATH": "{}/include:$CPATH".format(parmetis_prefix),
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(parmetis_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(parmetis_prefix),
-    "PARMETIS_INC": "{}/include".format(parmetis_prefix),
-    "PARMETIS_INCLUDE": "{}/include".format(parmetis_prefix),
-    "PARMETIS_LIB": "{}/lib".format(parmetis_prefix),
 }
 parmetis = bb.generic_build(
     url="https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz",
@@ -280,24 +283,31 @@ parmetis = bb.generic_build(
 )
 Stage0 += parmetis
 
+
 # Install Eigen
 eigen_prefix = "/usr/local/eigen"
 eigen_env = {
     "CPATH": "{}/include:$CPATH".format(eigen_prefix),
-    "EIGEN_INC": "{}/include".format(eigen_prefix),
-    "EIGEN_INCLUDE": "{}/include".format(eigen_prefix),
+    "CMAKE_PREFIX_PATH": "{}/share/eigen3/cmake:$CMAKE_PREFIX_PATH".format(
+        eigen_prefix
+    ),
+    "PKG_CONFIG_PATH": "{}/share/pkgconfig:$PKG_CONFIG_PATH".format(eigen_prefix),
 }
 eigen = bb.generic_cmake(
     url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
     toolchain=ompi.toolchain,
     prefix=eigen_prefix,
     devel_environment=eigen_env,
+    runtime_environment=eigen_env,
 )
 Stage0 += eigen
 
+
 # Install libxsmm
 libxsmm_prefix = "/usr/local/libxsmm"
-libxsmm_env = {"PATH": "{}/bin:$PATH".format(libxsmm_prefix)}
+libxsmm_env = {
+    "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
+}
 libxsmm = bb.generic_build(
     repository="https://github.com/libxsmm/libxsmm.git",
     branch="1.17",
@@ -312,13 +322,133 @@ libxsmm = bb.generic_build(
 )
 Stage0 += libxsmm
 
+
+# Install LUA
+lua_prefix = "/usr/local/lua"
+lua_env = {
+    "PATH": "{}/bin:$PATH".format(lua_prefix),
+    "CPATH": "{}/include:$CPATH".format(lua_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(lua_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(lua_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(lua_prefix),
+}
+lua = bb.generic_build(
+    url="https://www.lua.org/ftp/lua-5.4.7.tar.gz",
+    prefix=lua_prefix,
+    build=["make all install INSTALL_TOP={}".format(lua_prefix)],
+    devel_environment=lua_env,
+    runtime_environment=lua_env,
+)
+Stage0 += lua
+
+
 # Install ASAGI
 asagi_prefix = "/usr/local/asagi"
+asagi_env = {
+    "CPATH": "{}/include:$CPATH".format(asagi_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(asagi_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(asagi_prefix),
+    "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(asagi_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(asagi_prefix),
+}
+asagi = bb.generic_cmake(
+    repository="https://github.com/TUM-I5/ASAGI.git",
+    commit="4a29bb8c54904431ac4032ebfcf3512c8659a2f3",  # master branch as of 27/01/2025
+    recursive=True,
+    toolchain=ompi.toolchain,
+    prefix=asagi_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DSHARED_LIB=OFF",
+        "-DSTATIC_LIB=ON",
+        "-DFORTRAN_SUPPORT=OFF",
+    ],
+    devel_environment=asagi_env,
+    runtime_Environment=asagi_env,
+)
+Stage0 += asagi
+
 
 # Install easi
+## Install ImpalaJIT
+impalajit_prefix = "/usr/local/impalajit"
+impalajit_env = {
+    "CPATH": "{}/include:$CPATH".format(impalajit_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(impalajit_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(impalajit_prefix),
+    "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(impalajit_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(impalajit_prefix),
+}
+impalajit_toolchain = hpccm.toolchain()
+impalajit_toolchain.CXXFLAGS = "-fPIE"
+impalajit = bb.generic_cmake(
+    repository="https://github.com/manuel-fasching/ImpalaJIT.git",
+    commit="b439466c1d7c2b336b8fc2dde5acc77a698361ff",  # last commit as of 27/01/2025
+    toolchain=impalajit_toolchain,
+    prefix=impalajit_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+    ],
+    devel_environment=impalajit_env,
+    runtime_environment=impalajit_env,
+)
+Stage0 += impalajit
 
-# Install PSpaMM
+## Install yaml-cpp
+yamlcpp_prefix = "/usr/local/yaml-cpp"
+yamlcpp_env = {
+    "CPATH": "{}/include:$CPATH".format(yamlcpp_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(yamlcpp_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(yamlcpp_prefix),
+    "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(yamlcpp_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(yamlcpp_prefix),
+}
+yamlcpp = bb.generic_cmake(
+    repository="https://github.com/jbeder/yaml-cpp.git",
+    branch="0.8.0",
+    prefix=yamlcpp_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+    ],
+    devel_environment=yamlcpp_env,
+    runtime_environment=yamlcpp_env,
+)
+Stage0 += yamlcpp
 
-# Install gemmforge
+## Install easi itself
+easi_prefix = "/usr/local/easi"
+easi_env = {
+    "CPATH": "{}/include:$CPATH".format(easi_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(easi_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(easi_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(easi_prefix),
+}
+easi = bb.generic_cmake(
+    repository="https://github.com/SeisSol/easi.git",
+    commit="17200158e485fb3294f65f6abfb12470209cda61",  # last commit as of 27/01/2025
+    recursive=True,
+    prefix=easi_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DEASICUBE=OFF",
+        "-DIMPALAJIT=ON",
+        "-DASAGI=ON",
+    ],
+    devel_environment=easi_env,
+    runtime_environment=easi_env,
+)
+Stage0 += easi
 
-# Install chainforge
+
+# Install PSpaMM, gemmforge and chainforge
+Stage0 += bb.pip(
+    pip="pip3",
+    packages=[
+        "git+https://github.com/SeisSol/PSpaMM.git@ac78a76e518d21fbe06c8a4dbeae55aff236fb6a",  # last commit as of 27/01/2025
+        "git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",  # last commit as of 27/01/2025
+        "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",  # last commit as of 27/01/2025
+    ],
+)
+
+
+# Install SeisSol
