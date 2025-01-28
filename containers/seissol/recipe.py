@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, environment, shell
+from hpccm.primitives import baseimage, environment
 import hpccm.primitives
 
 CLUSTER_CONFIGS = {
@@ -219,7 +219,7 @@ setattr(bb.hdf5, "_hdf5__download", download_latest)
 
 ## Install building block
 hdf5_prefix = "/usr/local/hdf5"
-hdf5_toolchain = ompi.toolchain
+hdf5_toolchain = ompi.toolchain.__copy__()
 hdf5_toolchain.CFLAGS = "-fPIC"
 hdf5 = bb.hdf5(
     baseurl="https://support.hdfgroup.org/releases/hdf5",
@@ -236,9 +236,10 @@ Stage0 += hdf5
 
 # Install NetCDF
 netcdf_prefix = "/usr/local/netcdf"
-netcdf_toolchain = ompi.toolchain
-netcdf_toolchain.CFLAGS = "-fPIC -I{}/include".format(hdf5_prefix)
-netcdf_toolchain.LDFLAGS = "-L{}/lib".format(hdf5_prefix)
+netcdf_toolchain = hpccm.toolchain(
+    CFLAGS="-fPIC",
+    CC="{}/bin/h5pcc".format(hdf5_prefix),
+)
 netcdf = bb.netcdf(
     version="4.9.2",
     toolchain=netcdf_toolchain,
@@ -247,6 +248,8 @@ netcdf = bb.netcdf(
     fortran=False,
     disable_shared=True,
     disable_dap=True,
+    disable_libxml2=True,
+    disable_byterange=True,
 )
 Stage0 += netcdf
 Stage0 += environment(
@@ -264,6 +267,7 @@ parmetis_env = {
     "CPATH": "{}/include:$CPATH".format(parmetis_prefix),
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(parmetis_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(parmetis_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(parmetis_prefix),
 }
 parmetis = bb.generic_build(
     url="https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz",
@@ -307,15 +311,17 @@ Stage0 += eigen
 libxsmm_prefix = "/usr/local/libxsmm"
 libxsmm_env = {
     "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
+    "CPATH": "{}/include:$CPATH".format(libxsmm_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(libxsmm_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(libxsmm_prefix),
+    "PKG_CONFIG_PATH": "{}/lib:$PKG_CONFIG_PATH".format(libxsmm_prefix),
 }
 libxsmm = bb.generic_build(
     repository="https://github.com/libxsmm/libxsmm.git",
     branch="1.17",
     prefix=libxsmm_prefix,
     build=[
-        "make -j$(nproc) generator",
-        "mkdir -p {}/bin".format(libxsmm_prefix),
-        "cp ./bin/libxsmm_gemm_generator {}/bin".format(libxsmm_prefix),
+        "make PREFIX={} -j$(nproc) install-minimal".format(libxsmm_prefix),
     ],
     devel_environment=libxsmm_env,
     runtime_environment=libxsmm_env,
@@ -443,12 +449,61 @@ Stage0 += easi
 # Install PSpaMM, gemmforge and chainforge
 Stage0 += bb.pip(
     pip="pip3",
+    upgrade=True,  # upgrade pip itself before installing packages
     packages=[
-        "git+https://github.com/SeisSol/PSpaMM.git@ac78a76e518d21fbe06c8a4dbeae55aff236fb6a",  # last commit as of 27/01/2025
-        "git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",  # last commit as of 27/01/2025
-        "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",  # last commit as of 27/01/2025
+        "git+https://github.com/SeisSol/PSpaMM.git@v0.3.0",
+        "git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",
+        "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",
     ],
 )
 
 
 # Install SeisSol
+## Get correct host arch label
+match config["march"]:
+    case "skylake":
+        host_arch = "skx"
+    case "neoverse_v2":
+        host_arch = "none"  # optimizations not yet available
+    case _:
+        raise RuntimeError("Invalid host microarchitecture")
+
+## Build and install SeisSol
+seissol_prefix = "/usr/local/seissol"
+seissol_env = {
+    "PATH": "{}/bin:$PATH".format(seissol_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(seissol_prefix),
+}
+seissol_toolchain = hpccm.toolchain(LDFLAGS="-lcurl")
+seissol = bb.generic_cmake(
+    repository="https://github.com/SeisSol/SeisSol.git",
+    commit="1fc5cd0f1e9528d0e557b86e8e3ab6be09128165",  # last commit as of 27/01/2025
+    recursive=True,
+    # preconfigure=[
+    #     ". {}/bin/activate".format(venv_path),
+    # ],
+    toolchain=seissol_toolchain,
+    prefix=seissol_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DHOST_ARCH={}".format(host_arch),
+        "-DDEVICE_BACKEND=cuda",
+        "-DDEVICE_ARCH=sm_{}".format(config["cuda_arch"]),
+        "-DASAGI=ON",
+        "-DNETCDF=ON",
+        "-DPRECISION=single",
+        "-DORDER=4",
+    ],
+    runtime_environment=seissol_env,
+)
+Stage0 += seissol
+
+
+# Runtime image build
+Stage1 += baseimage(
+    image="docker.io/{}@{}".format(config["base_image"], config["digest_runtime"]),
+    _distro=config["base_os"],
+    _arch=config["arch"],
+)
+Stage1 += Stage0.runtime()

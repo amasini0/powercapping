@@ -1,5 +1,7 @@
 __pycache__/
 .venv/
+.vscode/
+build/
 
 # Dockerfiles excluded for the moment
 Dockerfile

@@ -1,0 +1,823 @@
+# NOTE: this definition file depends on features only available in
+# Singularity 3.2 and later.
+BootStrap: docker
+From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56fb6d3c93fb8a82472816
+Stage: devel
+%post
+    . /.singularity.d/env/10-docker*.sh
+
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
+
+# Mellanox OFED version 24.04-0.7.0.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/24.04-0.7.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ibverbs-providers \
+        ibverbs-utils \
+        libibmad-dev \
+        libibmad5 \
+        libibumad-dev \
+        libibumad3 \
+        libibverbs-dev \
+        libibverbs1 \
+        librdmacm-dev \
+        librdmacm1
+    rm -rf /var/lib/apt/lists/*
+
+# KNEM version 1.1.4
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch knem-1.1.4 https://gitlab.inria.fr/knem/knem.git knem && cd -
+    mkdir -p /usr/local/knem
+    cd /var/tmp/knem
+    mkdir -p /usr/local/knem/include
+    cp common/*.h /usr/local/knem/include
+    rm -rf /var/tmp/knem
+%environment
+    export CPATH=/usr/local/knem/include:$CPATH
+%post
+    export CPATH=/usr/local/knem/include:$CPATH
+
+# XPMEM branch master
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        autoconf \
+        automake \
+        ca-certificates \
+        file \
+        git \
+        libtool \
+        make
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/hjelmn/xpmem.git xpmem && cd -
+    cd /var/tmp/xpmem
+    autoreconf --install
+    cd /var/tmp/xpmem &&   ./configure --prefix=/usr/local/xpmem --disable-kernel-module
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/xpmem
+%environment
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+
+# UCX https://github.com/openucx/ucx.git v1.18.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        autoconf \
+        automake \
+        binutils-dev \
+        ca-certificates \
+        file \
+        git \
+        libnuma-dev \
+        libtool \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.18.0 https://github.com/openucx/ucx.git ucx && cd -
+    cd /var/tmp/ucx
+    ./autogen.sh
+    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-optimizations --with-cuda=/usr/local/cuda --with-knem=/usr/local/knem --with-rdmacm --with-verbs --with-xpmem=/usr/local/xpmem
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/ucx
+%environment
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+%post
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+
+# OpenMPI version 5.0.3
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        hwloc \
+        libnuma-dev \
+        make \
+        openssh-client \
+        perl \
+        tar \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://www.open-mpi.org/software/ompi/v5.0/downloads/openmpi-5.0.3.tar.bz2
+    mkdir -p /var/tmp && tar -x -f /var/tmp/openmpi-5.0.3.tar.bz2 -C /var/tmp -j
+    cd /var/tmp/openmpi-5.0.3 &&   ./configure --prefix=/usr/local/openmpi --disable-getpwuid --enable-orterun-prefix-by-default --with-cuda --with-pmix=internal --with-ucx=/usr/local/ucx --with-verbs
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/openmpi-5.0.3 /var/tmp/openmpi-5.0.3.tar.bz2
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+
+# CMake version 3.27.8
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
+    mkdir -p /usr/local
+    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
+%environment
+    export PATH=/usr/local/bin:$PATH
+%post
+    export PATH=/usr/local/bin:$PATH
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git \
+        pkgconf
+    rm -rf /var/lib/apt/lists/*
+
+# LLVM compiler
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        clang-18 \
+        clang-format-18 \
+        clang-tidy-18 \
+        clang-tools-18 \
+        libc++-18-dev \
+        libc++1-18 \
+        libc++abi1-18 \
+        libclang-18-dev \
+        libclang1-18 \
+        liblldb-18-dev \
+        libomp-18-dev \
+        lld-18 \
+        lldb-18 \
+        llvm-18 \
+        llvm-18-dev \
+        llvm-18-runtime
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
+    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
+    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
+    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
+    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
+    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
+
+# Boost version 1.86.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        libbz2-dev \
+        tar \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
+    mkdir -p /var/tmp && tar -x -f /var/tmp/boost_1_86_0.tar.bz2 -C /var/tmp -j
+    cd /var/tmp/boost_1_86_0 && ./bootstrap.sh --prefix=/usr/local/boost --with-libraries=fiber,context,atomic,filesystem --show-libraries
+    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=aarch64 --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
+    rm -rf /var/tmp/boost_1_86_0.tar.bz2 /var/tmp/boost_1_86_0
+%environment
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+
+# https://github.com/AdaptiveCpp/AdaptiveCpp.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git AdaptiveCpp && cd -
+    mkdir -p /var/tmp/AdaptiveCpp/build && cd /var/tmp/AdaptiveCpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/acpp -DCMAKE_BUILD_TYPE=Release -DACPP_COMPILER_FEATURE_PROFILE=minimal -DDEFAULT_TARGETS=cuda:sm_90 /var/tmp/AdaptiveCpp
+    cmake --build /var/tmp/AdaptiveCpp/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/AdaptiveCpp/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/AdaptiveCpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+
+# HDF5 version 1.14.5
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        make \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://support.hdfgroup.org/releases/hdf5/v1_14/v1_14_5/downloads/hdf5-1.14.5.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hdf5-1.14.5.tar.gz -C /var/tmp -z
+    cd /var/tmp/hdf5-1.14.5 &&  CC=mpicc CFLAGS=-fPIC CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/hdf5 --disable-shared --enable-parallel --with-zlib
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/hdf5-1.14.5 /var/tmp/hdf5-1.14.5.tar.gz
+%environment
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+%post
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+
+# NetCDF version 4.9.2
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        file \
+        libcurl4-openssl-dev \
+        m4 \
+        make \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Unidata/netcdf-c/archive/v4.9.2.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v4.9.2.tar.gz -C /var/tmp -z
+    cd /var/tmp/netcdf-c-4.9.2 &&  CC=/usr/local/hdf5/bin/h5pcc CFLAGS=-fPIC ./configure --prefix=/usr/local/netcdf --disable-byterange --disable-dap --disable-libxml2 --disable-shared
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/netcdf-c-4.9.2 /var/tmp/v4.9.2.tar.gz
+%environment
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+%post
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/netcdf:$CMAKE_PREFIX_PATH
+    export PKG_CONFIG_PATH=/usr/local/netcdf/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/netcdf:$CMAKE_PREFIX_PATH
+    export PKG_CONFIG_PATH=/usr/local/netcdf/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/parmetis-4.0.3.tar.gz -C /var/tmp -z
+    cd /var/tmp/parmetis-4.0.3
+    sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g' ./metis/include/metis.h
+    CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort make config prefix=/usr/local/parmetis
+    make -j$(nproc)
+    make -j$(nproc) install
+    cp ./build/Linux-*/libmetis/libmetis.a /usr/local/parmetis/lib
+    cp ./metis/include/metis.h /usr/local/parmetis/include
+    rm -rf /var/tmp/parmetis-4.0.3 /var/tmp/parmetis-4.0.3.tar.gz
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/parmetis:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/parmetis/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/parmetis/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
+    export PATH=/usr/local/parmetis/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/parmetis:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/parmetis/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/parmetis/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
+    export PATH=/usr/local/parmetis/bin:$PATH
+
+# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/eigen-3.4.0.tar.gz -C /var/tmp -z
+    mkdir -p /var/tmp/eigen-3.4.0/build && cd /var/tmp/eigen-3.4.0/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen /var/tmp/eigen-3.4.0
+    cmake --build /var/tmp/eigen-3.4.0/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/eigen-3.4.0/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/eigen-3.4.0 /var/tmp/eigen-3.4.0.tar.gz
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/eigen/include:$CPATH
+    export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/eigen/include:$CPATH
+    export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/libxsmm/libxsmm.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch 1.17 https://github.com/libxsmm/libxsmm.git libxsmm && cd -
+    cd /var/tmp/libxsmm
+    make PREFIX=/usr/local/libxsmm -j$(nproc) install-minimal
+    rm -rf /var/tmp/libxsmm
+%environment
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+%post
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+
+# https://www.lua.org/ftp/lua-5.4.7.tar.gz
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://www.lua.org/ftp/lua-5.4.7.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/lua-5.4.7.tar.gz -C /var/tmp -z
+    cd /var/tmp/lua-5.4.7
+    make all install INSTALL_TOP=/usr/local/lua
+    rm -rf /var/tmp/lua-5.4.7 /var/tmp/lua-5.4.7.tar.gz
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/lua:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/lua/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/lua/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/lua/lib:$LIBRARY_PATH
+    export PATH=/usr/local/lua/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/lua:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/lua/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/lua/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/lua/lib:$LIBRARY_PATH
+    export PATH=/usr/local/lua/bin:$PATH
+
+# https://github.com/TUM-I5/ASAGI.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --recursive https://github.com/TUM-I5/ASAGI.git ASAGI && cd - && cd /var/tmp/ASAGI && git checkout 4a29bb8c54904431ac4032ebfcf3512c8659a2f3 && cd -
+    mkdir -p /var/tmp/ASAGI/build && cd /var/tmp/ASAGI/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/asagi -DCMAKE_BUILD_TYPE=Release -DSHARED_LIB=OFF -DSTATIC_LIB=ON -DFORTRAN_SUPPORT=OFF /var/tmp/ASAGI
+    cmake --build /var/tmp/ASAGI/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/ASAGI/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/ASAGI
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/asagi:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/asagi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/asagi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/asagi/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/asagi/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/asagi:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/asagi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/asagi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/asagi/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/asagi/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/manuel-fasching/ImpalaJIT.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/manuel-fasching/ImpalaJIT.git ImpalaJIT && cd - && cd /var/tmp/ImpalaJIT && git checkout b439466c1d7c2b336b8fc2dde5acc77a698361ff && cd -
+    mkdir -p /var/tmp/ImpalaJIT/build && cd /var/tmp/ImpalaJIT/build && CXXFLAGS=-fPIE cmake -DCMAKE_INSTALL_PREFIX=/usr/local/impalajit -DCMAKE_BUILD_TYPE=Release /var/tmp/ImpalaJIT
+    cmake --build /var/tmp/ImpalaJIT/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/ImpalaJIT/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/ImpalaJIT
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/impalajit/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/impalajit/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/impalajit/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/impalajit/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/impalajit/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/impalajit/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/impalajit/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/impalajit/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/impalajit/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/impalajit/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/jbeder/yaml-cpp.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch 0.8.0 https://github.com/jbeder/yaml-cpp.git yaml-cpp && cd -
+    mkdir -p /var/tmp/yaml-cpp/build && cd /var/tmp/yaml-cpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/yaml-cpp -DCMAKE_BUILD_TYPE=Release /var/tmp/yaml-cpp
+    cmake --build /var/tmp/yaml-cpp/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/yaml-cpp/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/yaml-cpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/yaml-cpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/yaml-cpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/yaml-cpp/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/yaml-cpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/yaml-cpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/yaml-cpp/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/SeisSol/easi.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --recursive https://github.com/SeisSol/easi.git easi && cd - && cd /var/tmp/easi && git checkout 17200158e485fb3294f65f6abfb12470209cda61 && cd -
+    mkdir -p /var/tmp/easi/build && cd /var/tmp/easi/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/easi -DCMAKE_BUILD_TYPE=Release -DEASICUBE=OFF -DIMPALAJIT=ON -DASAGI=ON /var/tmp/easi
+    cmake --build /var/tmp/easi/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/easi/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/easi
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/easi/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/easi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/easi/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/easi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
+
+# pip
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    pip3 --no-cache-dir install --upgrade pip
+    pip3 --no-cache-dir install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0 git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807 git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb
+
+# https://github.com/SeisSol/SeisSol.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd - && cd /var/tmp/SeisSol && git checkout 1fc5cd0f1e9528d0e557b86e8e3ab6be09128165 && cd -
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=none -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DASAGI=ON -DNETCDF=ON -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/SeisSol
+
+BootStrap: docker
+From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498
+%post
+    . /.singularity.d/env/10-docker*.sh
+
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
+
+# Mellanox OFED version 24.04-0.7.0.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/24.04-0.7.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ibverbs-providers \
+        ibverbs-utils \
+        libibmad-dev \
+        libibmad5 \
+        libibumad-dev \
+        libibumad3 \
+        libibverbs-dev \
+        libibverbs1 \
+        librdmacm-dev \
+        librdmacm1
+    rm -rf /var/lib/apt/lists/*
+
+# KNEM
+%files from devel
+    /usr/local/knem /usr/local/knem
+%environment
+    export CPATH=/usr/local/knem/include:$CPATH
+%post
+    export CPATH=/usr/local/knem/include:$CPATH
+
+# XPMEM
+%files from devel
+    /usr/local/xpmem /usr/local/xpmem
+%environment
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/xpmem/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+
+# UCX
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libbinutils
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/ucx /usr/local/ucx
+%environment
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+%post
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+
+# OpenMPI
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        hwloc \
+        openssh-client
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/openmpi /usr/local/openmpi
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+
+# LLVM compiler runtime
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libclang1-18 \
+        libomp5-18 \
+        llvm-18-runtime
+    rm -rf /var/lib/apt/lists/*
+
+# Boost
+%files from devel
+    /usr/local/boost /usr/local/boost
+%environment
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+
+# https://github.com/AdaptiveCpp/AdaptiveCpp.git
+%files from devel
+    /usr/local/acpp /usr/local/acpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+
+# HDF5
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        zlib1g
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/hdf5 /usr/local/hdf5
+%environment
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+%post
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+
+# NetCDF
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        zlib1g
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/netcdf /usr/local/netcdf
+%environment
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+%post
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+
+# https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+%files from devel
+    /usr/local/parmetis /usr/local/parmetis
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/parmetis:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/parmetis/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/parmetis/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
+    export PATH=/usr/local/parmetis/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/parmetis:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/parmetis/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/parmetis/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
+    export PATH=/usr/local/parmetis/bin:$PATH
+
+# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+%files from devel
+    /usr/local/eigen /usr/local/eigen
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/eigen/include:$CPATH
+    export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/eigen/include:$CPATH
+    export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/libxsmm/libxsmm.git
+%files from devel
+    /usr/local/libxsmm /usr/local/libxsmm
+%environment
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+%post
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+
+# https://www.lua.org/ftp/lua-5.4.7.tar.gz
+%files from devel
+    /usr/local/lua /usr/local/lua
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/lua:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/lua/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/lua/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/lua/lib:$LIBRARY_PATH
+    export PATH=/usr/local/lua/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/lua:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/lua/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/lua/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/lua/lib:$LIBRARY_PATH
+    export PATH=/usr/local/lua/bin:$PATH
+
+# https://github.com/TUM-I5/ASAGI.git
+%files from devel
+    /usr/local/asagi /usr/local/asagi
+
+# https://github.com/manuel-fasching/ImpalaJIT.git
+%files from devel
+    /usr/local/impalajit /usr/local/impalajit
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/impalajit/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/impalajit/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/impalajit/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/impalajit/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/impalajit/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/impalajit/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/impalajit/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/impalajit/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/impalajit/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/impalajit/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/jbeder/yaml-cpp.git
+%files from devel
+    /usr/local/yaml-cpp /usr/local/yaml-cpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/yaml-cpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/yaml-cpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/yaml-cpp/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/yaml-cpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/yaml-cpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/yaml-cpp/lib:$LIBRARY_PATH
+    export PKG_CONFIG_PATH=/usr/local/yaml-cpp/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/SeisSol/easi.git
+%files from devel
+    /usr/local/easi /usr/local/easi
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/easi/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/easi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/easi/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/easi/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
+
+# https://github.com/SeisSol/SeisSol.git
+%files from devel
+    /usr/local/seissol /usr/local/seissol
+%environment
+    export LD_LIBRARY_PATH=/usr/local/seissol/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/seissol/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol/bin:$PATH
