@@ -145,11 +145,19 @@ llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
 Stage0 += llvm
 
 ## Install Boost
-## Force installation from official archives (see baseurl)
+match config["arch"]:
+    case "x86_64":
+        boost_arch = "x86"
+    case "aarch64":
+        boost_arch = "arm"
+    case _:
+        raise ValueError("Invalid architecture: {}".format(config["arch"]))
+
+boost_prefix = "/usr/local/boost"
 boost = bb.boost(
     version="1.86.0",
-    baseurl="https://archives.boost.io/release/1.86.0/source",
-    prefix="/usr/local/boost",
+    baseurl="https://archives.boost.io/release/1.86.0/source",  # force installation from official archive
+    prefix=boost_prefix,
     bootstrap_opts=[
         "--with-libraries=fiber,context,atomic,filesystem",
         "--show-libraries",
@@ -161,7 +169,7 @@ boost = bb.boost(
         "visibility=hidden",
         'cxxflags="-std=c++17"',
         "address-model=64",
-        "architecture={}".format(config["arch"].split("_")[0]),
+        "architecture={}".format(boost_arch),
         "--with-fiber",
         "--with-context",
         "--with-atomic",
@@ -197,7 +205,7 @@ Stage0 += adaptive_cpp
 
 # Install parallel HDF5
 ## Monkey patch building block to get latest version
-def download_latest(self):
+def hdf5_download_latest(self):
     """Construct the series of shell commands, i.e., fill in
     self.__commands"""
     # The download URL has the format contains vMAJOR.MINOR in the
@@ -215,7 +223,7 @@ def download_latest(self):
     )
 
 
-setattr(bb.hdf5, "_hdf5__download", download_latest)
+setattr(bb.hdf5, "_hdf5__download", hdf5_download_latest)
 
 ## Install building block
 hdf5_prefix = "/usr/local/hdf5"
@@ -235,13 +243,28 @@ Stage0 += hdf5
 
 
 # Install NetCDF
+## Monkey patch building block for download on thea
+def netcdf_download_latest(self):
+    """Set download source based on user parameters"""
+    pkgname = "netcdf-c"
+    tarball = "{0}-{1}.tar.gz".format(pkgname, self._netcdf__version)
+    self._netcdf__directory_c = "{0}-{1}".format(pkgname, self._netcdf__version)
+    self._netcdf__baseurl_c = "https://downloads.unidata.ucar.edu/netcdf-c/{}".format(
+        self._netcdf__version
+    )
+    self._netcdf__url_c = "{0}/{1}".format(self._netcdf__baseurl_c, tarball)
+
+
+setattr(bb.netcdf, "_netcdf__download", netcdf_download_latest)
+
+## Install building block
 netcdf_prefix = "/usr/local/netcdf"
 netcdf_toolchain = hpccm.toolchain(
     CFLAGS="-fPIC",
     CC="{}/bin/h5pcc".format(hdf5_prefix),
 )
 netcdf = bb.netcdf(
-    version="4.9.2",
+    version="4.9.2",  # tested only with 4.9.2 (latest version as of 28/01/2025)
     toolchain=netcdf_toolchain,
     prefix=netcdf_prefix,
     cxx=False,
@@ -385,6 +408,7 @@ impalajit_env = {
     "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(impalajit_prefix),
     "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(impalajit_prefix),
 }
+
 impalajit_toolchain = hpccm.toolchain()
 impalajit_toolchain.CXXFLAGS = "-fPIE"
 impalajit = bb.generic_cmake(
@@ -459,16 +483,14 @@ Stage0 += bb.pip(
 
 
 # Install SeisSol
-## Get correct host arch label
 match config["march"]:
     case "skylake":
-        host_arch = "skx"
+        seissol_host_arch = "skx"
     case "neoverse_v2":
-        host_arch = "none"  # optimizations not yet available
+        seissol_host_arch = "none"  # optimizations not yet available
     case _:
-        raise RuntimeError("Invalid host microarchitecture")
+        raise ValueError("Invalid host microarchitecture")
 
-## Build and install SeisSol
 seissol_prefix = "/usr/local/seissol"
 seissol_env = {
     "PATH": "{}/bin:$PATH".format(seissol_prefix),
@@ -487,7 +509,7 @@ seissol = bb.generic_cmake(
     prefix=seissol_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DHOST_ARCH={}".format(host_arch),
+        "-DHOST_ARCH={}".format(seissol_host_arch),
         "-DDEVICE_BACKEND=cuda",
         "-DDEVICE_ARCH=sm_{}".format(config["cuda_arch"]),
         "-DASAGI=ON",

@@ -236,7 +236,7 @@ Stage: devel
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
     mkdir -p /var/tmp && tar -x -f /var/tmp/boost_1_86_0.tar.bz2 -C /var/tmp -j
     cd /var/tmp/boost_1_86_0 && ./bootstrap.sh --prefix=/usr/local/boost --with-libraries=fiber,context,atomic,filesystem --show-libraries
-    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=aarch64 --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
+    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=arm --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
     rm -rf /var/tmp/boost_1_86_0.tar.bz2 /var/tmp/boost_1_86_0
 %environment
     export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
@@ -309,12 +309,12 @@ Stage: devel
     rm -rf /var/lib/apt/lists/*
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Unidata/netcdf-c/archive/v4.9.2.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/v4.9.2.tar.gz -C /var/tmp -z
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/netcdf-c-4.9.2.tar.gz -C /var/tmp -z
     cd /var/tmp/netcdf-c-4.9.2 &&  CC=/usr/local/hdf5/bin/h5pcc CFLAGS=-fPIC ./configure --prefix=/usr/local/netcdf --disable-byterange --disable-dap --disable-libxml2 --disable-shared
     make -j$(nproc)
     make -j$(nproc) install
-    rm -rf /var/tmp/netcdf-c-4.9.2 /var/tmp/v4.9.2.tar.gz
+    rm -rf /var/tmp/netcdf-c-4.9.2 /var/tmp/netcdf-c-4.9.2.tar.gz
 %environment
     export CPATH=/usr/local/netcdf/include:$CPATH
     export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
