@@ -151,7 +151,9 @@ match config["arch"]:
     case "aarch64":
         boost_arch = "arm"
     case _:
-        raise ValueError("Invalid architecture: {}".format(config["arch"]))
+        raise ValueError(
+            "Invalid or unsupported architecture: {}".format(config["arch"])
+        )
 
 boost_prefix = "/usr/local/boost"
 boost = bb.boost(
@@ -349,6 +351,16 @@ Stage0 += environment(
 )
 
 # Install libxsmm
+match config["arch"]:
+    case "aarch64":
+        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-gnu-linux-ar JIT=1"
+    case "x86_64":
+        libxsmm_extra_build_opts = ""
+    case _:
+        raise ValueError(
+            "Invalid or unsupported architecture: {}".format(config["arch"])
+        )
+
 libxsmm_prefix = "/usr/local/libxsmm"
 libxsmm_env = {
     "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
@@ -363,7 +375,9 @@ libxsmm = bb.generic_build(
     commit="419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227",  # last commit as of 28/01/2025
     prefix=libxsmm_prefix,
     build=[
-        "make PREFIX={} -j$(nproc) install-minimal".format(libxsmm_prefix),
+        "make PREFIX={0} {1} -j$(nproc) install-minimal".format(
+            libxsmm_prefix, libxsmm_extra_build_opts
+        ),
     ],
     devel_environment=libxsmm_env,
     runtime_environment=libxsmm_env,
@@ -508,7 +522,9 @@ match config["march"]:
     case "neoverse_v2":
         seissol_host_arch = "none"  # optimizations not yet available
     case _:
-        raise ValueError("Invalid host microarchitecture")
+        raise ValueError(
+            "Invalid or unsupported microarchitecture: {}".format(config["march"])
+        )
 
 seissol_prefix = "/usr/local/seissol"
 seissol_env = {
