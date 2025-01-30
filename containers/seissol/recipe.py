@@ -330,6 +330,24 @@ eigen = bb.generic_cmake(
 Stage0 += eigen
 
 
+# Install OpenBLAS
+openblas_prefix = "/usr/local/openblas"
+openblas = bb.openblas(
+    version="0.3.27",
+    prefix=openblas_prefix,
+)
+Stage0 += openblas
+Stage0 += environment(
+    variables={
+        "PATH": "{}/bin:$PATH".format(openblas_prefix),
+        "CPATH": "{}/include:$CPATH".format(openblas_prefix),
+        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(openblas_prefix),
+        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(openblas_prefix),
+        "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(openblas_prefix),
+        "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(openblas_prefix),
+    }
+)
+
 # Install libxsmm
 libxsmm_prefix = "/usr/local/libxsmm"
 libxsmm_env = {
@@ -338,10 +356,11 @@ libxsmm_env = {
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(libxsmm_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(libxsmm_prefix),
     "PKG_CONFIG_PATH": "{}/lib:$PKG_CONFIG_PATH".format(libxsmm_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(libxsmm_prefix),
 }
 libxsmm = bb.generic_build(
     repository="https://github.com/libxsmm/libxsmm.git",
-    branch="1.17",
+    commit="419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227",  # last commit as of 28/01/2025
     prefix=libxsmm_prefix,
     build=[
         "make PREFIX={} -j$(nproc) install-minimal".format(libxsmm_prefix),
@@ -500,20 +519,15 @@ seissol_env = {
 seissol_toolchain = hpccm.toolchain(LDFLAGS="-lcurl")
 seissol = bb.generic_cmake(
     repository="https://github.com/SeisSol/SeisSol.git",
-    commit="1fc5cd0f1e9528d0e557b86e8e3ab6be09128165",  # last commit as of 27/01/2025
+    branch="v1.3.0",
     recursive=True,
-    # preconfigure=[
-    #     ". {}/bin/activate".format(venv_path),
-    # ],
     toolchain=seissol_toolchain,
     prefix=seissol_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DHOST_ARCH={}".format(seissol_host_arch),
         "-DDEVICE_BACKEND=cuda",
         "-DDEVICE_ARCH=sm_{}".format(config["cuda_arch"]),
-        "-DASAGI=ON",
-        "-DNETCDF=ON",
+        "-DHOST_ARCH={}".format(seissol_host_arch),
         "-DPRECISION=single",
         "-DORDER=4",
     ],
