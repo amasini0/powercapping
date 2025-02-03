@@ -558,7 +558,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=none -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
