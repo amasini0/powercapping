@@ -421,7 +421,7 @@ Stage: devel
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
     cd /var/tmp/libxsmm
-    make PREFIX=/usr/local/libxsmm PLATFORM=1 AR=aarch64-gnu-linux-ar JIT=1 -j$(nproc) install-minimal
+    make PREFIX=/usr/local/libxsmm PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1 -j$(nproc) install-minimal
     rm -rf /var/tmp/libxsmm
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH

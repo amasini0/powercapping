@@ -353,7 +353,7 @@ Stage0 += environment(
 # Install libxsmm
 match config["arch"]:
     case "aarch64":
-        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-gnu-linux-ar JIT=1"
+        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1"
     case "x86_64":
         libxsmm_extra_build_opts = ""
     case _:
