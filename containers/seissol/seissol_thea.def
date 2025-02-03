@@ -377,67 +377,6 @@ Stage: devel
     export CPATH=/usr/local/eigen/include:$CPATH
     export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
 
-# OpenBLAS version 0.3.27
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        perl \
-        tar \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
-    cd /var/tmp/OpenBLAS-0.3.27
-    make TARGET=ARMV8 USE_OPENMP=1
-    mkdir -p /usr/local/openblas
-    cd /var/tmp/OpenBLAS-0.3.27
-    make install PREFIX=/usr/local/openblas
-    rm -rf /var/tmp/OpenBLAS-0.3.27 /var/tmp/v0.3.27.tar.gz
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-
-# https://github.com/libxsmm/libxsmm.git
-%post
-    cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
-    cd /var/tmp/libxsmm
-    make PREFIX=/usr/local/libxsmm PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1 -j$(nproc) install-minimal
-    rm -rf /var/tmp/libxsmm
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-
 # https://www.lua.org/ftp/lua-5.4.7.tar.gz
 %post
     cd /
@@ -553,6 +492,67 @@ Stage: devel
     cd /
     pip3 --no-cache-dir install --upgrade pip
     pip3 --no-cache-dir install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0 git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807 git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb
+
+# OpenBLAS version 0.3.27
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        perl \
+        tar \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
+    cd /var/tmp/OpenBLAS-0.3.27
+    make TARGET=ARMV8 USE_OPENMP=1
+    mkdir -p /usr/local/openblas
+    cd /var/tmp/OpenBLAS-0.3.27
+    make install PREFIX=/usr/local/openblas
+    rm -rf /var/tmp/OpenBLAS-0.3.27 /var/tmp/v0.3.27.tar.gz
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/openblas/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
+    export PATH=/usr/local/openblas/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/openblas/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
+    export PATH=/usr/local/openblas/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# https://github.com/libxsmm/libxsmm.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
+    cd /var/tmp/libxsmm
+    make PREFIX=/usr/local/libxsmm PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1 -j$(nproc) install-minimal
+    rm -rf /var/tmp/libxsmm
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
 
 # https://github.com/SeisSol/SeisSol.git
 %post
@@ -769,32 +769,6 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export CPATH=/usr/local/eigen/include:$CPATH
     export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
 
-# OpenBLAS
-%files from devel
-    /usr/local/openblas /usr/local/openblas
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-
-# https://github.com/libxsmm/libxsmm.git
-%files from devel
-    /usr/local/libxsmm /usr/local/libxsmm
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-
 # https://www.lua.org/ftp/lua-5.4.7.tar.gz
 %files from devel
     /usr/local/lua /usr/local/lua
@@ -860,6 +834,32 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export CPATH=/usr/local/easi/include:$CPATH
     export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
+
+# OpenBLAS
+%files from devel
+    /usr/local/openblas /usr/local/openblas
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+
+# https://github.com/libxsmm/libxsmm.git
+%files from devel
+    /usr/local/libxsmm /usr/local/libxsmm
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/libxsmm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/libxsmm/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
 
 # https://github.com/SeisSol/SeisSol.git
 %files from devel

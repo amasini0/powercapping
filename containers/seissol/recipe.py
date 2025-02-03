@@ -332,59 +332,6 @@ eigen = bb.generic_cmake(
 Stage0 += eigen
 
 
-# Install OpenBLAS
-openblas_prefix = "/usr/local/openblas"
-openblas = bb.openblas(
-    version="0.3.27",
-    prefix=openblas_prefix,
-)
-Stage0 += openblas
-Stage0 += environment(
-    variables={
-        "PATH": "{}/bin:$PATH".format(openblas_prefix),
-        "CPATH": "{}/include:$CPATH".format(openblas_prefix),
-        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(openblas_prefix),
-        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(openblas_prefix),
-        "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(openblas_prefix),
-        "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(openblas_prefix),
-    }
-)
-
-# Install libxsmm
-match config["arch"]:
-    case "aarch64":
-        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1"
-    case "x86_64":
-        libxsmm_extra_build_opts = ""
-    case _:
-        raise ValueError(
-            "Invalid or unsupported architecture: {}".format(config["arch"])
-        )
-
-libxsmm_prefix = "/usr/local/libxsmm"
-libxsmm_env = {
-    "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
-    "CPATH": "{}/include:$CPATH".format(libxsmm_prefix),
-    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(libxsmm_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(libxsmm_prefix),
-    "PKG_CONFIG_PATH": "{}/lib:$PKG_CONFIG_PATH".format(libxsmm_prefix),
-    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(libxsmm_prefix),
-}
-libxsmm = bb.generic_build(
-    repository="https://github.com/libxsmm/libxsmm.git",
-    commit="419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227",  # last commit as of 28/01/2025
-    prefix=libxsmm_prefix,
-    build=[
-        "make PREFIX={0} {1} -j$(nproc) install-minimal".format(
-            libxsmm_prefix, libxsmm_extra_build_opts
-        ),
-    ],
-    devel_environment=libxsmm_env,
-    runtime_environment=libxsmm_env,
-)
-Stage0 += libxsmm
-
-
 # Install LUA
 lua_prefix = "/usr/local/lua"
 lua_env = {
@@ -513,6 +460,60 @@ Stage0 += bb.pip(
         "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",
     ],
 )
+
+
+# Install LIBXSMM_JIT (required OpenBLAS for being picked up by SeisSol)
+## Install OpenBLAS
+openblas_prefix = "/usr/local/openblas"
+openblas = bb.openblas(
+    version="0.3.27",
+    prefix=openblas_prefix,
+)
+Stage0 += openblas
+Stage0 += environment(
+    variables={
+        "PATH": "{}/bin:$PATH".format(openblas_prefix),
+        "CPATH": "{}/include:$CPATH".format(openblas_prefix),
+        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(openblas_prefix),
+        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(openblas_prefix),
+        "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(openblas_prefix),
+        "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(openblas_prefix),
+    }
+)
+
+## Install libxsmm
+match config["arch"]:
+    case "aarch64":
+        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1"
+    case "x86_64":
+        libxsmm_extra_build_opts = ""
+    case _:
+        raise ValueError(
+            "Invalid or unsupported architecture: {}".format(config["arch"])
+        )
+
+libxsmm_prefix = "/usr/local/libxsmm"
+libxsmm_env = {
+    "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
+    "CPATH": "{}/include:$CPATH".format(libxsmm_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(libxsmm_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(libxsmm_prefix),
+    "PKG_CONFIG_PATH": "{}/lib:$PKG_CONFIG_PATH".format(libxsmm_prefix),
+    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(libxsmm_prefix),
+}
+libxsmm = bb.generic_build(
+    repository="https://github.com/libxsmm/libxsmm.git",
+    commit="419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227",  # last commit as of 28/01/2025
+    prefix=libxsmm_prefix,
+    build=[
+        "make PREFIX={0} {1} -j$(nproc) install-minimal".format(
+            libxsmm_prefix, libxsmm_extra_build_opts
+        ),
+    ],
+    devel_environment=libxsmm_env,
+    runtime_environment=libxsmm_env,
+)
+Stage0 += libxsmm
 
 
 # Install SeisSol
