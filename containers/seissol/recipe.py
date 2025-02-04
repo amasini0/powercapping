@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, environment
+from hpccm.primitives import baseimage, environment, shell
 import hpccm.primitives
 
 CLUSTER_CONFIGS = {
@@ -75,6 +75,14 @@ Stage0 += baseimage(
 # Install Python
 python = bb.python(python2=False)
 Stage0 += python
+Stage0 += bb.packages(
+    ospackages=[
+        "python3-pip",
+        "python3-venv",
+        "python3-wheel",
+        "python3-setuptools",
+    ],
+)
 
 # Install network stack components and utilities
 netconfig = config["network_stack"]
@@ -450,18 +458,6 @@ easi = bb.generic_cmake(
 Stage0 += easi
 
 
-# Install PSpaMM, gemmforge and chainforge
-Stage0 += bb.pip(
-    pip="pip3",
-    upgrade=True,  # upgrade pip itself before installing packages
-    packages=[
-        "git+https://github.com/SeisSol/PSpaMM.git@v0.3.0",
-        "git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",
-        "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",
-    ],
-)
-
-
 # Install LIBXSMM_JIT (required OpenBLAS for being picked up by SeisSol)
 ## Install OpenBLAS
 openblas_prefix = "/usr/local/openblas"
@@ -514,6 +510,34 @@ libxsmm = bb.generic_build(
     runtime_environment=libxsmm_env,
 )
 Stage0 += libxsmm
+
+
+# Install PSpaMM, gemmforge and chainforge
+# Stage0 += bb.pip(
+#     pip="pip3",
+#     upgrade=True,  # upgrade pip itself before installing packages
+#     packages=[
+#         "git+https://github.com/SeisSol/PSpaMM.git@v0.3.0",
+#         "git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",
+#         "git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",
+#     ],
+# )
+Stage0 += shell(
+    commands=[
+        "python3 -m venv /usr/local/codegen",
+        ". /usr/local/codegen",
+        "pip install --upgrade pip",
+        "pip install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0",
+        "pip install git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807",
+        "pip install git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb",
+    ],
+)
+Stage0 += environment(
+    variables={
+        "PATH": "/usr/local/codegen/bin:$PATH",
+        "VIRTUAL_ENV": "/usr/local/codegen",
+    },
+)
 
 
 # Install SeisSol

@@ -13,6 +13,15 @@ Stage: devel
         python3
     rm -rf /var/lib/apt/lists/*
 
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-venv \
+        python3-wheel
+    rm -rf /var/lib/apt/lists/*
+
 # Mellanox OFED version 24.04-0.7.0.0
 %post
     apt-get update -y
@@ -480,19 +489,6 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
 
-# pip
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        python3-pip \
-        python3-setuptools \
-        python3-wheel
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    pip3 --no-cache-dir install --upgrade pip
-    pip3 --no-cache-dir install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0 git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807 git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb
-
 # OpenBLAS version 0.3.27
 %post
     apt-get update -y
@@ -553,6 +549,22 @@ Stage: devel
     export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
     export PATH=/usr/local/libxsmm/bin:$PATH
     export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+
+%post
+    cd /
+    python3 -m venv /usr/local/codegen
+    . /usr/local/codegen
+    pip install --upgrade pip
+    pip install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0
+    pip install git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807
+    pip install git+https://github.com/SeisSol/chainforge.git@f9d053e811d4410f78964d8a9eae7e1a632aa1fb
+
+%environment
+    export PATH=/usr/local/codegen/bin:$PATH
+    export VIRTUAL_ENV=/usr/local/codegen
+%post
+    export PATH=/usr/local/codegen/bin:$PATH
+    export VIRTUAL_ENV=/usr/local/codegen
 
 # https://github.com/SeisSol/SeisSol.git
 %post
