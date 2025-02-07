@@ -22,6 +22,75 @@ Stage: devel
         python3-wheel
     rm -rf /var/lib/apt/lists/*
 
+# CMake version 3.27.8
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
+    mkdir -p /usr/local
+    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
+%environment
+    export PATH=/usr/local/bin:$PATH
+%post
+    export PATH=/usr/local/bin:$PATH
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git \
+        pkgconf
+    rm -rf /var/lib/apt/lists/*
+
+# LLVM compiler
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        clang-18 \
+        clang-format-18 \
+        clang-tidy-18 \
+        clang-tools-18 \
+        libc++-18-dev \
+        libc++1-18 \
+        libc++abi1-18 \
+        libclang-18-dev \
+        libclang1-18 \
+        liblldb-18-dev \
+        libomp-18-dev \
+        lld-18 \
+        lldb-18 \
+        llvm-18 \
+        llvm-18-dev \
+        llvm-18-runtime
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
+    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
+    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
+    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
+    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
+    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
+
 # Mellanox OFED version 24.04-0.7.0.0
 %post
     apt-get update -y
@@ -161,75 +230,6 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
 
-# CMake version 3.27.8
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
-    mkdir -p /usr/local
-    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
-    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
-%environment
-    export PATH=/usr/local/bin:$PATH
-%post
-    export PATH=/usr/local/bin:$PATH
-
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        git \
-        pkgconf
-    rm -rf /var/lib/apt/lists/*
-
-# LLVM compiler
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        clang-18 \
-        clang-format-18 \
-        clang-tidy-18 \
-        clang-tools-18 \
-        libc++-18-dev \
-        libc++1-18 \
-        libc++abi1-18 \
-        libclang-18-dev \
-        libclang1-18 \
-        liblldb-18-dev \
-        libomp-18-dev \
-        lld-18 \
-        lldb-18 \
-        llvm-18 \
-        llvm-18-dev \
-        llvm-18-runtime
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
-    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
-    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
-    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
-    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
-    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
-    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
-
 # Boost version 1.86.0
 %post
     apt-get update -y
@@ -368,6 +368,45 @@ Stage: devel
     export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
     export PATH=/usr/local/parmetis/bin:$PATH
 
+# OpenBLAS version 0.3.27
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        perl \
+        tar \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
+    cd /var/tmp/OpenBLAS-0.3.27
+    make TARGET=ARMV8 USE_OPENMP=1
+    mkdir -p /usr/local/openblas
+    cd /var/tmp/OpenBLAS-0.3.27
+    make install PREFIX=/usr/local/openblas
+    rm -rf /var/tmp/OpenBLAS-0.3.27 /var/tmp/v0.3.27.tar.gz
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/openblas/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
+    export PATH=/usr/local/openblas/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/openblas/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
+    export PATH=/usr/local/openblas/bin:$PATH
+    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
+
 # https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
 %post
     cd /
@@ -489,45 +528,6 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
 
-# OpenBLAS version 0.3.27
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        perl \
-        tar \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
-    cd /var/tmp/OpenBLAS-0.3.27
-    make TARGET=ARMV8 USE_OPENMP=1
-    mkdir -p /usr/local/openblas
-    cd /var/tmp/OpenBLAS-0.3.27
-    make install PREFIX=/usr/local/openblas
-    rm -rf /var/tmp/OpenBLAS-0.3.27 /var/tmp/v0.3.27.tar.gz
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-
 # https://github.com/libxsmm/libxsmm.git
 %post
     cd /
@@ -553,7 +553,7 @@ Stage: devel
 %post
     cd /
     python3 -m venv /usr/local/codegen
-    . /usr/local/codegen
+    . /usr/local/codegen/bin/activate
     pip install --upgrade pip
     pip install git+https://github.com/SeisSol/PSpaMM.git@v0.3.0
     pip install git+https://github.com/SeisSol/gemmforge.git@00d2101e32069267ecd4067133fdb0d34e9ae807
@@ -585,6 +585,28 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3
+    rm -rf /var/lib/apt/lists/*
+
+# LLVM compiler runtime
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libclang1-18 \
+        libomp5-18 \
+        llvm-18-runtime
     rm -rf /var/lib/apt/lists/*
 
 # Mellanox OFED version 24.04-0.7.0.0
@@ -667,28 +689,6 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
 
-# LLVM compiler runtime
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libclang1-18 \
-        libomp5-18 \
-        llvm-18-runtime
-    rm -rf /var/lib/apt/lists/*
-
 # Boost
 %files from devel
     /usr/local/boost /usr/local/boost
@@ -769,6 +769,14 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export LIBRARY_PATH=/usr/local/parmetis/lib:$LIBRARY_PATH
     export PATH=/usr/local/parmetis/bin:$PATH
 
+# OpenBLAS
+%files from devel
+    /usr/local/openblas /usr/local/openblas
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+
 # https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
 %files from devel
     /usr/local/eigen /usr/local/eigen
@@ -846,14 +854,6 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export CPATH=/usr/local/easi/include:$CPATH
     export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
-
-# OpenBLAS
-%files from devel
-    /usr/local/openblas /usr/local/openblas
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
 
 # https://github.com/libxsmm/libxsmm.git
 %files from devel
