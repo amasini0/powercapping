@@ -6,6 +6,23 @@ Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
 
+# step1: start
+
+# Install GCC 12, Python and build tools over base image
+
+# GNU compiler
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        g++-12 \
+        gcc-12
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    update-alternatives --install /usr/bin/g++ g++ $(which g++-12) 30
+    update-alternatives --install /usr/bin/gcc gcc $(which gcc-12) 30
+    update-alternatives --install /usr/bin/gcov gcov $(which gcov-12) 30
+
 # Python
 %post
     apt-get update -y
@@ -40,6 +57,8 @@ Stage: devel
 %post
     export PATH=/usr/local/bin:$PATH
 
+# Git, Pkgconf
+
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -47,49 +66,9 @@ Stage: devel
         pkgconf
     rm -rf /var/lib/apt/lists/*
 
-# LLVM compiler
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        clang-18 \
-        clang-format-18 \
-        clang-tidy-18 \
-        clang-tools-18 \
-        libc++-18-dev \
-        libc++1-18 \
-        libc++abi1-18 \
-        libclang-18-dev \
-        libclang1-18 \
-        liblldb-18-dev \
-        libomp-18-dev \
-        lld-18 \
-        lldb-18 \
-        llvm-18 \
-        llvm-18-dev \
-        llvm-18-runtime
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
-    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
-    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
-    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
-    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
-    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
-    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
+# step2: start
+
+# Install network stack packages and OpenMPI
 
 # Mellanox OFED version 24.04-0.7.0.0
 %post
@@ -230,6 +209,54 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
 
+# step3: start
+
+# Install AdaptiveCpp for SYCL compilation support
+
+# LLVM compiler
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        clang-18 \
+        clang-format-18 \
+        clang-tidy-18 \
+        clang-tools-18 \
+        libc++-18-dev \
+        libc++1-18 \
+        libc++abi1-18 \
+        libclang-18-dev \
+        libclang1-18 \
+        liblldb-18-dev \
+        libomp-18-dev \
+        lld-18 \
+        lldb-18 \
+        llvm-18 \
+        llvm-18-dev \
+        llvm-18-runtime
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
+    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
+    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
+    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
+    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
+    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
+
 # Boost version 1.86.0
 %post
     apt-get update -y
@@ -272,6 +299,10 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
     export PATH=/usr/local/acpp/bin:$PATH
+
+# step4: start
+
+# Install I/O, meshing and math libraries required by SeisSol
 
 # HDF5 version 1.14.5
 %post
@@ -425,6 +456,10 @@ Stage: devel
     export CPATH=/usr/local/eigen/include:$CPATH
     export PKG_CONFIG_PATH=/usr/local/eigen/share/pkgconfig:$PKG_CONFIG_PATH
 
+# step5: start
+
+# Install geospatial data acquisition tools
+
 # https://www.lua.org/ftp/lua-5.4.7.tar.gz
 %post
     cd /
@@ -528,6 +563,10 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/easi/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/easi/lib:$LIBRARY_PATH
 
+# step6: start
+
+# Install CPU and GPU code generators
+
 # https://github.com/libxsmm/libxsmm.git
 %post
     cd /
@@ -550,6 +589,8 @@ Stage: devel
     export PATH=/usr/local/libxsmm/bin:$PATH
     export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
 
+# PSpaMM, gemmforge, chainforge
+
 %post
     cd /
     python3 -m venv /usr/local/codegen
@@ -566,6 +607,10 @@ Stage: devel
     export PATH=/usr/local/codegen/bin:$PATH
     export VIRTUAL_ENV=/usr/local/codegen
 
+# step7: start
+
+# Install SeisSol (order 4/5/6, double precision)
+
 # https://github.com/SeisSol/SeisSol.git
 %post
     cd /
@@ -575,38 +620,27 @@ Stage: devel
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
 
+# step8: start
+
+# Generate runtime image
+
 BootStrap: docker
 From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498
 %post
     . /.singularity.d/env/10-docker*.sh
+
+# GNU compiler runtime
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libgomp1
+    rm -rf /var/lib/apt/lists/*
 
 # Python
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3
-    rm -rf /var/lib/apt/lists/*
-
-# LLVM compiler runtime
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libclang1-18 \
-        libomp5-18 \
-        llvm-18-runtime
     rm -rf /var/lib/apt/lists/*
 
 # Mellanox OFED version 24.04-0.7.0.0
@@ -688,6 +722,28 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
 %post
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
+
+# LLVM compiler runtime
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    mkdir -p /usr/share/keyrings
+    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libclang1-18 \
+        libomp5-18 \
+        llvm-18-runtime
+    rm -rf /var/lib/apt/lists/*
 
 # Boost
 %files from devel
@@ -884,3 +940,24 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export LD_LIBRARY_PATH=/usr/local/seissol/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/seissol/lib:$LIBRARY_PATH
     export PATH=/usr/local/seissol/bin:$PATH
+
+# Code generators
+
+%files from devel
+    /usr/local/codegen /usr/local/codegen
+
+%environment
+    export PATH=/usr/local/codegen/bin:$PATH
+    export VIRTUAL_ENV=/usr/local/codegen
+%post
+    export PATH=/usr/local/codegen/bin:$PATH
+    export VIRTUAL_ENV=/usr/local/codegen
+
+# Libraries missing from CUDA runtime image
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libcurl4 \
+        libnuma1
+    rm -rf /var/lib/apt/lists/*

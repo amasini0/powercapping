@@ -1,10 +1,12 @@
+# Excluded directories
 __pycache__/
 .venv/
 .vscode/
 build/
+steps/
 
-# Dockerfiles excluded for the moment
+# Exclude Dockerfiles
 Dockerfile
 
-# Singularity image files
+# Exclude .sif images
 *.sif

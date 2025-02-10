@@ -2,8 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, environment, shell
-from hpccm.toolchain import toolchain
+from hpccm.primitives import baseimage, comment, copy, environment, shell
 
 CLUSTER_CONFIGS = {
     "leonardo": {
@@ -48,7 +47,6 @@ CLUSTER_CONFIGS = {
     },
 }
 
-
 # Get correct config
 machine = USERARG.get("machine", "thea")
 
@@ -71,6 +69,18 @@ Stage0 += baseimage(
 # Microarchitecture specification
 hpccm.config.set_cpu_target(config["march"])
 
+
+################################################################################
+Stage0 += comment("step1: start")
+Stage0 += comment("Install GCC 12, Python and build tools over base image")
+
+# Install compiler (GCC > 12 for code generators)
+gcc = bb.gnu(
+    version="12",
+    fortran=False,
+)
+Stage0 += gcc
+
 # Install Python with virtual environments support
 python = bb.python(python2=False)
 Stage0 += python
@@ -83,21 +93,16 @@ Stage0 += bb.packages(
     ],
 )
 
-# Install build tools (CMake, Git, pkgconf)
+# Install other build tools (CMake, Git, pkgconf)
 Stage0 += bb.cmake(eula=True, version="3.27.8")
+
+Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
 
-# Install LLVM
-## Passing _trunk_version="0.1" to force correct toolchain installation from upstream
-## repos, which otherwise fails due to incorrect package name specification
-llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
-Stage0 += llvm
 
-
-###############################################################################
-##### 01_mpi:
-##### - Packages required for network stack support and MPI installation
-###############################################################################
+################################################################################
+Stage0 += comment("step2: start")
+Stage0 += comment("Install network stack packages and OpenMPI")
 
 # Install network stack components and utilities
 netconfig = config["network_stack"]
@@ -154,10 +159,15 @@ ompi = bb.openmpi(
 Stage0 += ompi
 
 
-###############################################################################
-##### 02_sycl:
-##### - Packages required to enable SYCL support
-###############################################################################
+################################################################################
+Stage0 += comment("step3: start")
+Stage0 += comment("Install AdaptiveCpp for SYCL compilation support")
+
+# Install LLVM
+## Passing _trunk_version="0.1" to force correct toolchain installation from upstream
+## repos, which otherwise fails due to incorrect package name specification
+llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
+Stage0 += llvm
 
 # Install Boost
 match config["arch"]:
@@ -220,10 +230,10 @@ adaptive_cpp = bb.generic_cmake(
 Stage0 += adaptive_cpp
 
 
-###############################################################################
-##### 03_deps:
-##### - I/O, meshing and mathemathical libraries required by SeisSol
-###############################################################################
+################################################################################
+Stage0 += comment("step4: start")
+Stage0 += comment("Install I/O, meshing and math libraries required by SeisSol")
+
 
 # Install parallel HDF5
 ## Monkey patch building block to get latest version
@@ -244,6 +254,7 @@ def hdf5_download_latest(self):
         self._hdf5__baseurl, major_minor, self._hdf5__version.replace(".", "_"), tarball
     )
 
+
 setattr(bb.hdf5, "_hdf5__download", hdf5_download_latest)
 
 hdf5_prefix = "/usr/local/hdf5"
@@ -261,6 +272,7 @@ hdf5 = bb.hdf5(
 )
 Stage0 += hdf5
 
+
 # Install NetCDF
 ## Monkey patch building block for download on thea
 def netcdf_download_latest(self):
@@ -272,6 +284,7 @@ def netcdf_download_latest(self):
         self._netcdf__version
     )
     self._netcdf__url_c = "{0}/{1}".format(self._netcdf__baseurl_c, tarball)
+
 
 setattr(bb.netcdf, "_netcdf__download", netcdf_download_latest)
 
@@ -363,10 +376,9 @@ eigen = bb.generic_cmake(
 Stage0 += eigen
 
 
-###############################################################################
-##### 04_data:
-##### - Dependencies required for geospatial data acquisition
-###############################################################################
+################################################################################
+Stage0 += comment("step5: start")
+Stage0 += comment("Install geospatial data acquisition tools")
 
 # Install LUA
 lua_prefix = "/usr/local/lua"
@@ -483,10 +495,9 @@ easi = bb.generic_cmake(
 Stage0 += easi
 
 
-###############################################################################
-##### 05_codegen:
-##### - Code generators required for optimized matrix operations on CPU and GPU
-###############################################################################
+################################################################################
+Stage0 += comment("step6: start")
+Stage0 += comment("Install CPU and GPU code generators")
 
 # Install libxsmm
 match config["arch"]:
@@ -523,6 +534,7 @@ libxsmm = bb.generic_build(
 Stage0 += libxsmm
 
 # Install PSpaMM, gemmforge, chainforge
+Stage0 += comment("PSpaMM, gemmforge, chainforge")
 Stage0 += shell(
     commands=[
         "python3 -m venv /usr/local/codegen",
@@ -540,10 +552,10 @@ Stage0 += environment(
     },
 )
 
-###############################################################################
-##### 06_seissol:
-##### - Seissol compilation and installation
-###############################################################################
+
+################################################################################
+Stage0 += comment("step7: start")
+Stage0 += comment("Install SeisSol (order 4/5/6, double precision)")
 
 # Install SeisSol
 match config["march"]:
@@ -582,14 +594,39 @@ seissol = bb.generic_cmake(
 Stage0 += seissol
 
 
-###############################################################################
-##### 07_runtime:
-##### - Runtime image build (multistage build)
-###############################################################################
+################################################################################
+Stage0 += comment("step8: start")
+Stage0 += comment("Generate runtime image")
 
 Stage1 += baseimage(
     image="docker.io/{}@{}".format(config["base_image"], config["digest_runtime"]),
     _distro=config["base_os"],
     _arch=config["arch"],
 )
+
+# Copy all default runtimes
 Stage1 += Stage0.runtime()
+
+# Copy python virtualenv
+Stage1 += comment("Code generators")
+Stage1 += copy(
+    _from="devel",
+    files={
+        "/usr/local/codegen": "/usr/local/codegen",
+    },
+)
+Stage1 += environment(
+    variables={
+        "PATH": "/usr/local/codegen/bin:$PATH",
+        "VIRTUAL_ENV": "/usr/local/codegen",
+    }
+)
+
+# Manually add missing libraries
+Stage1 += comment("Libraries missing from CUDA runtime image")
+Stage1 += bb.packages(
+    ospackages=[
+        "libnuma1",
+        "libcurl4",
+    ]
+)
