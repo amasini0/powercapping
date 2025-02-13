@@ -93,11 +93,32 @@ Stage0 += bb.packages(
     ],
 )
 
-# Install other build tools (CMake, Git, pkgconf)
+# Install CMake
 Stage0 += bb.cmake(eula=True, version="3.27.8")
 
+# Install Git and pkgconf
 Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
+
+# Install newer binutils distribution
+binutils_prefix = "/usr/local/binutils"
+binutils_env = {
+    "PATH": "{}/bin:$PATH".format(binutils_prefix),
+    "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
+}
+binutils = bb.generic_build(
+    url="https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz",
+    prefix=binutils_prefix,
+    build=[
+        "CC=gcc ./configure --prefix={}".format(binutils_prefix),
+        "make -j$(nproc)",
+        "make install -j$(nproc)",
+    ],
+    devel_environment=binutils_env,
+    runtime_environment=binutils_env,
+)
+Stage0 += binutils
 
 
 ################################################################################
