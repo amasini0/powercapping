@@ -108,7 +108,7 @@ binutils_env = {
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
 }
 binutils = bb.generic_build(
-    url="https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz",
+    url="https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz",
     prefix=binutils_prefix,
     build=[
         "CC=gcc ./configure --prefix={}".format(binutils_prefix),
@@ -388,7 +388,8 @@ eigen_env = {
     "PKG_CONFIG_PATH": "{}/share/pkgconfig:$PKG_CONFIG_PATH".format(eigen_prefix),
 }
 eigen = bb.generic_cmake(
-    url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+    repository="https://gitlab.com/libeigen/eigen.git",
+    branch="3.4",
     toolchain=ompi.toolchain,
     prefix=eigen_prefix,
     devel_environment=eigen_env,

@@ -66,10 +66,10 @@ Stage: devel
         pkgconf
     rm -rf /var/lib/apt/lists/*
 
-# https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+# https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
     mkdir -p /var/tmp && tar -x -f /var/tmp/binutils-2.43.tar.xz -C /var/tmp -J
     cd /var/tmp/binutils-2.43
     CC=gcc ./configure --prefix=/usr/local/binutils
@@ -457,15 +457,14 @@ Stage: devel
     export PATH=/usr/local/openblas/bin:$PATH
     export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
 
-# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+# https://gitlab.com/libeigen/eigen.git
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/eigen-3.4.0.tar.gz -C /var/tmp -z
-    mkdir -p /var/tmp/eigen-3.4.0/build && cd /var/tmp/eigen-3.4.0/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen /var/tmp/eigen-3.4.0
-    cmake --build /var/tmp/eigen-3.4.0/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/eigen-3.4.0/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/eigen-3.4.0 /var/tmp/eigen-3.4.0.tar.gz
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch 3.4 https://gitlab.com/libeigen/eigen.git eigen && cd -
+    mkdir -p /var/tmp/eigen/build && cd /var/tmp/eigen/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen /var/tmp/eigen
+    cmake --build /var/tmp/eigen/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/eigen/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/eigen
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
     export CPATH=/usr/local/eigen/include:$CPATH
@@ -662,7 +661,7 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
         python3
     rm -rf /var/lib/apt/lists/*
 
-# https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+# https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
 %files from devel
     /usr/local/binutils /usr/local/binutils
 %environment
@@ -864,7 +863,7 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
 %post
     export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
 
-# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+# https://gitlab.com/libeigen/eigen.git
 %files from devel
     /usr/local/eigen /usr/local/eigen
 %environment
