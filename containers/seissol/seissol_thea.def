@@ -10,19 +10,6 @@ Stage: devel
 
 # Install GCC 12, Python and build tools over base image
 
-# GNU compiler
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        g++-12 \
-        gcc-12
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    update-alternatives --install /usr/bin/g++ g++ $(which g++-12) 30
-    update-alternatives --install /usr/bin/gcc gcc $(which gcc-12) 30
-    update-alternatives --install /usr/bin/gcov gcov $(which gcov-12) 30
-
 # Python
 %post
     apt-get update -y
@@ -65,25 +52,6 @@ Stage: devel
         git \
         pkgconf
     rm -rf /var/lib/apt/lists/*
-
-# https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/binutils-2.43.tar.xz -C /var/tmp -J
-    cd /var/tmp/binutils-2.43
-    CC=gcc ./configure --prefix=/usr/local/binutils
-    make -j$(nproc)
-    make install -j$(nproc)
-    rm -rf /var/tmp/binutils-2.43 /var/tmp/binutils-2.43.tar.xz
-%environment
-    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
-    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
-    export PATH=/usr/local/binutils/bin:$PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
-    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
-    export PATH=/usr/local/binutils/bin:$PATH
 
 # step2: start
 
@@ -634,7 +602,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && CC=clang CFLAGS=-mcpu=neoverse-v2 CXX=clang++ CXXFLAGS=-mcpu=neoverse-v2 LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -648,31 +616,12 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
 %post
     . /.singularity.d/env/10-docker*.sh
 
-# GNU compiler runtime
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libgomp1
-    rm -rf /var/lib/apt/lists/*
-
 # Python
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3
     rm -rf /var/lib/apt/lists/*
-
-# https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz
-%files from devel
-    /usr/local/binutils /usr/local/binutils
-%environment
-    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
-    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
-    export PATH=/usr/local/binutils/bin:$PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
-    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
-    export PATH=/usr/local/binutils/bin:$PATH
 
 # Mellanox OFED version 24.04-0.7.0.0
 %post

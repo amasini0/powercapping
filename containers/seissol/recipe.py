@@ -75,11 +75,11 @@ Stage0 += comment("step1: start")
 Stage0 += comment("Install GCC 12, Python and build tools over base image")
 
 # Install compiler (GCC > 12 for code generators)
-gcc = bb.gnu(
-    version="12",
-    fortran=False,
-)
-Stage0 += gcc
+# gcc = bb.gnu(
+#     version="12",
+#     fortran=False,
+# )
+# Stage0 += gcc
 
 # Install Python with virtual environments support
 python = bb.python(python2=False)
@@ -101,24 +101,24 @@ Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
 
 # Install newer binutils distribution
-binutils_prefix = "/usr/local/binutils"
-binutils_env = {
-    "PATH": "{}/bin:$PATH".format(binutils_prefix),
-    "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
-}
-binutils = bb.generic_build(
-    url="https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz",
-    prefix=binutils_prefix,
-    build=[
-        "CC=gcc ./configure --prefix={}".format(binutils_prefix),
-        "make -j$(nproc)",
-        "make install -j$(nproc)",
-    ],
-    devel_environment=binutils_env,
-    runtime_environment=binutils_env,
-)
-Stage0 += binutils
+# binutils_prefix = "/usr/local/binutils"
+# binutils_env = {
+#     "PATH": "{}/bin:$PATH".format(binutils_prefix),
+#     "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
+#     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
+# }
+# binutils = bb.generic_build(
+#     url="https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz",
+#     prefix=binutils_prefix,
+#     build=[
+#         "CC=gcc ./configure --prefix={}".format(binutils_prefix),
+#         "make -j$(nproc)",
+#         "make install -j$(nproc)",
+#     ],
+#     devel_environment=binutils_env,
+#     runtime_environment=binutils_env,
+# )
+# Stage0 += binutils
 
 
 ################################################################################
@@ -582,7 +582,7 @@ match config["march"]:
     case "skylake":
         seissol_host_arch = "skx"
     case "neoverse_v2":
-        seissol_host_arch = "sve128"  # requires gcc >= 12
+        seissol_host_arch = "neon"
     case _:
         raise ValueError(
             "Invalid or unsupported microarchitecture: {}".format(config["march"])
@@ -594,7 +594,7 @@ seissol_env = {
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(seissol_prefix),
 }
-seissol_toolchain = llvm.toolchain.__copy__()
+seissol_toolchain=ompi.toolchain.__copy__()
 seissol_toolchain.LDFLAGS="-lcurl"
 seissol = bb.generic_cmake(
     repository="https://github.com/SeisSol/SeisSol.git",
