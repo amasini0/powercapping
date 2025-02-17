@@ -388,9 +388,7 @@ eigen_env = {
     "PKG_CONFIG_PATH": "{}/share/pkgconfig:$PKG_CONFIG_PATH".format(eigen_prefix),
 }
 eigen = bb.generic_cmake(
-    repository="https://gitlab.com/libeigen/eigen.git",
-    branch="3.4",
-    toolchain=ompi.toolchain,
+    url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
     prefix=eigen_prefix,
     devel_environment=eigen_env,
     runtime_environment=eigen_env,
