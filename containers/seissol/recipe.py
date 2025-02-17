@@ -594,7 +594,8 @@ seissol_env = {
     "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(seissol_prefix),
 }
-seissol_toolchain = hpccm.toolchain(LDFLAGS="-lcurl")
+seissol_toolchain = llvm.toolchain.__copy__()
+seissol_toolchain.LDFLAGS="-lcurl"
 seissol = bb.generic_cmake(
     repository="https://github.com/SeisSol/SeisSol.git",
     branch="v1.3.0",
