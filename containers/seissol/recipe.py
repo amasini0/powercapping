@@ -74,13 +74,6 @@ hpccm.config.set_cpu_target(config["march"])
 Stage0 += comment("step1: start")
 Stage0 += comment("Install GCC 12, Python and build tools over base image")
 
-# Install compiler (GCC > 12 for code generators)
-# gcc = bb.gnu(
-#     version="12",
-#     fortran=False,
-# )
-# Stage0 += gcc
-
 # Install Python with virtual environments support
 python = bb.python(python2=False)
 Stage0 += python
@@ -100,39 +93,19 @@ Stage0 += bb.cmake(eula=True, version="3.27.8")
 Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
 
-# Install newer binutils distribution
-# binutils_prefix = "/usr/local/binutils"
-# binutils_env = {
-#     "PATH": "{}/bin:$PATH".format(binutils_prefix),
-#     "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
-#     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
-# }
-# binutils = bb.generic_build(
-#     url="https://sourceware.org/pub/binutils/releases/binutils-2.43.tar.xz",
-#     prefix=binutils_prefix,
-#     build=[
-#         "CC=gcc ./configure --prefix={}".format(binutils_prefix),
-#         "make -j$(nproc)",
-#         "make install -j$(nproc)",
-#     ],
-#     devel_environment=binutils_env,
-#     runtime_environment=binutils_env,
-# )
-# Stage0 += binutils
-
 
 ################################################################################
 Stage0 += comment("step2: start")
 Stage0 += comment("Install network stack packages and OpenMPI")
 
-# Install network stack components and utilities
+# Get network stack configuration
 netconfig = config["network_stack"]
 
-## Install Mellanox OFED userspace libraries
+# Install Mellanox OFED userspace libraries
 mlnx_ofed = bb.mlnx_ofed(version=netconfig["mlnx_ofed"])
 Stage0 += mlnx_ofed
 
-## Install KNEM headers
+# Install KNEM headers
 if netconfig["knem"]:
     knem_prefix = "/usr/local/knem"
     knem = bb.knem(prefix=knem_prefix)
@@ -140,7 +113,7 @@ if netconfig["knem"]:
 else:
     knem_prefix = False
 
-## Install XPMEM userspace library
+# Install XPMEM userspace library
 if netconfig["xpmem"]:
     xpmem_prefix = "/usr/local/xpmem"
     xpmem = bb.xpmem(prefix=xpmem_prefix)
@@ -148,7 +121,7 @@ if netconfig["xpmem"]:
 else:
     xpmem_prefix = False
 
-## Install UCX
+# Install UCX
 ucx_prefix = "/usr/local/ucx"
 ucx = bb.ucx(
     prefix=ucx_prefix,
@@ -161,7 +134,7 @@ ucx = bb.ucx(
 )
 Stage0 += ucx
 
-## Install PMIx
+# Install PMIx
 match netconfig["pmix"]:
     case "internal":
         pmix_prefix = "internal"
@@ -170,7 +143,7 @@ match netconfig["pmix"]:
         pmix = bb.pmix(prefix=pmix_prefix, version=netconfig["pmix"])
         Stage0 += pmix
 
-## Install OpenMPI
+# Install OpenMPI
 ompi = bb.openmpi(
     prefix="/usr/local/openmpi",
     version=netconfig["ompi"],
@@ -591,7 +564,7 @@ match config["march"]:
 seissol_base_prefix = "/usr/local/seissol"
 seissol_toolchain=hpccm.toolchain(LDFLAGS="-lcurl")
 for order in [4,5,6]:
-    seissol_prefix = "{}_{}".format(seissol_base_prefix, order)
+    seissol_prefix = "{}_O{}".format(seissol_base_prefix, order)
     seissol_env = {
         "PATH": "{}/bin:$PATH".format(seissol_prefix),
         "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),

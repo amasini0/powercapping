@@ -6,12 +6,56 @@ Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
 
+# step1: start
+
+# Install GCC 12, Python and build tools over base image
+
 # Python
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3
     rm -rf /var/lib/apt/lists/*
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-venv \
+        python3-wheel
+    rm -rf /var/lib/apt/lists/*
+
+# CMake version 3.27.8
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
+    mkdir -p /usr/local
+    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
+%environment
+    export PATH=/usr/local/bin:$PATH
+%post
+    export PATH=/usr/local/bin:$PATH
+
+# Git, Pkgconf
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git \
+        pkgconf
+    rm -rf /var/lib/apt/lists/*
+
+# step2: start
+
+# Install network stack packages and OpenMPI
 
 # Mellanox OFED version 24.04-0.7.0.0
 %post
@@ -152,32 +196,30 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
 
-# CMake version 3.27.8
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
-    mkdir -p /usr/local
-    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
-    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
-%environment
-    export PATH=/usr/local/bin:$PATH
-%post
-    export PATH=/usr/local/bin:$PATH
+# step3: start
 
-# https://github.com/amasini0/powercapping.git
+# Compile and install OpenMPI benchmarks
+
+# https://github.com/amasini0/mpi-benchmarks.git
 %post
     cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/powercapping.git powercapping && cd -
-    mkdir -p /var/tmp/powercapping/benchmarks/build && cd /var/tmp/powercapping/benchmarks/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=90 /var/tmp/powercapping/benchmarks
-    cmake --build /var/tmp/powercapping/benchmarks/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/powercapping/benchmarks/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/powercapping/benchmarks
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/mpi-benchmarks.git mpi-benchmarks && cd -
+    mkdir -p /var/tmp/mpi-benchmarks/build && cd /var/tmp/mpi-benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks /var/tmp/mpi-benchmarks
+    cmake --build /var/tmp/mpi-benchmarks/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/mpi-benchmarks/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/mpi-benchmarks
+%environment
+    export LD_LIBRARY_PATH=/usr/local/benchmarks/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/benchmarks/lib:$LIBRARY_PATH
+    export PATH=/usr/local/benchmarks/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/benchmarks/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/benchmarks/lib:$LIBRARY_PATH
+    export PATH=/usr/local/benchmarks/bin:$PATH
+
+# step4: start
+
+# Generate runtime image
 
 BootStrap: docker
 From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498
@@ -271,6 +313,22 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
 
-# https://github.com/amasini0/powercapping.git
+# https://github.com/amasini0/mpi-benchmarks.git
 %files from devel
     /usr/local/benchmarks /usr/local/benchmarks
+%environment
+    export LD_LIBRARY_PATH=/usr/local/benchmarks/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/benchmarks/lib:$LIBRARY_PATH
+    export PATH=/usr/local/benchmarks/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/benchmarks/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/benchmarks/lib:$LIBRARY_PATH
+    export PATH=/usr/local/benchmarks/bin:$PATH
+
+# Libraries missing from CUDA runtime image
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libnuma1
+    rm -rf /var/lib/apt/lists/*

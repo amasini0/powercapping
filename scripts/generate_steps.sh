@@ -1,24 +1,29 @@
 #!/bin/bash
 
-# Script that splits "seissol_thea.def" in 8 partial steps. 
-# The following .def files will be generated:
-# step1.def: python,compiler, build tools;
-# step2.def: ofed, ucx, openmpi;
-# step3.def: sycl (adaptivecpp);
-# step4.def: io and math libraries;
-# step5.def: data acquisition tools;
-# step6.def: code generation tools;
-# step7.def: seissol build;
-# step8.def: runtime image generation.
+# Script that splits a singularity definition files in steps.
+# Takes as input the .def file to be split.
+# Produces a set of .def files corresponding to each step.
 
-# .def files will be placed in a "steps" folder in the 
-# same directory of this script and "seissol_thea.def"
-STEPS_FOLDER=$(realpath "$(dirname $0)/steps")
+if [[ ! $# -eq 1 ]]
+then
+    echo "Usage: $0 <my-container.def>"
+    exit 1
+fi
+
+# The starting point of each step must be indicated in the
+# original .def file through comments like the following:
+#
+# step <N>: start
+#
+# where N is a consecutive number representing the step.
+
+# .def files for each step will be placed in a "steps" folder 
+# in the same directory of this script and "seissol_thea.def"
+STEPS_FOLDER=$(realpath "$(dirname $1)/steps")
 mkdir -p $STEPS_FOLDER
 
-
 # Get lines corresponding to each step's starting point
-RECIPE_FILE=$(realpath "$(dirname $0)/seissol_thea.def")
+RECIPE_FILE=$(realpath "$1")
 start_lines=($(grep -n "step[0-9]: start" $RECIPE_FILE | cut -d ':' -f 1))
 
 for i in $(seq 1 $((${#start_lines[@]})))

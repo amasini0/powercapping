@@ -602,7 +602,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -611,7 +611,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -620,7 +620,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -929,39 +929,39 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
 
 # https://github.com/SeisSol/SeisSol.git
 %files from devel
-    /usr/local/seissol_4 /usr/local/seissol_4
+    /usr/local/seissol_O4 /usr/local/seissol_O4
 %environment
-    export LD_LIBRARY_PATH=/usr/local/seissol_4/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_4/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_4/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O4/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O4/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O4/bin:$PATH
 %post
-    export LD_LIBRARY_PATH=/usr/local/seissol_4/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_4/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_4/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O4/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O4/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O4/bin:$PATH
 
 # https://github.com/SeisSol/SeisSol.git
 %files from devel
-    /usr/local/seissol_5 /usr/local/seissol_5
+    /usr/local/seissol_O5 /usr/local/seissol_O5
 %environment
-    export LD_LIBRARY_PATH=/usr/local/seissol_5/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_5/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_5/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O5/bin:$PATH
 %post
-    export LD_LIBRARY_PATH=/usr/local/seissol_5/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_5/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_5/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O5/bin:$PATH
 
 # https://github.com/SeisSol/SeisSol.git
 %files from devel
-    /usr/local/seissol_6 /usr/local/seissol_6
+    /usr/local/seissol_O6 /usr/local/seissol_O6
 %environment
-    export LD_LIBRARY_PATH=/usr/local/seissol_6/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_6/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_6/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O6/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O6/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O6/bin:$PATH
 %post
-    export LD_LIBRARY_PATH=/usr/local/seissol_6/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/seissol_6/lib:$LIBRARY_PATH
-    export PATH=/usr/local/seissol_6/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/seissol_O6/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/seissol_O6/lib:$LIBRARY_PATH
+    export PATH=/usr/local/seissol_O6/bin:$PATH
 
 # Code generators
 

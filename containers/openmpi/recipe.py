@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage
+from hpccm.primitives import baseimage, comment, copy, environment, shell
 
 CLUSTER_CONFIGS = {
     "leonardo": {
@@ -47,7 +47,6 @@ CLUSTER_CONFIGS = {
     },
 }
 
-
 # Get correct config
 machine = USERARG.get("machine", "thea")
 
@@ -59,10 +58,6 @@ if machine not in CLUSTER_CONFIGS.keys():
 
 config = CLUSTER_CONFIGS[machine]
 
-# Global HPCCM config for package installations
-hpccm.config.set_cpu_target(config["march"])
-hpccm.config.set_linux_distro(config["base_os"])
-
 # Set base image
 Stage0 += baseimage(
     image="docker.io/{}@{}".format(config["base_image"], config["digest_devel"]),
@@ -71,18 +66,46 @@ Stage0 += baseimage(
     _as="devel",
 )
 
-# Install Python
+# Microarchitecture specification
+hpccm.config.set_cpu_target(config["march"])
+
+
+################################################################################
+Stage0 += comment("step1: start")
+Stage0 += comment("Install GCC 12, Python and build tools over base image")
+
+# Install Python with virtual environments support
 python = bb.python(python2=False)
 Stage0 += python
+Stage0 += bb.packages(
+    ospackages=[
+        "python3-pip",
+        "python3-venv",
+        "python3-wheel",
+        "python3-setuptools",
+    ],
+)
 
-# Install network stack components and utilities
+# Install CMake
+Stage0 += bb.cmake(eula=True, version="3.27.8")
+
+# Install Git and pkgconf
+Stage0 += comment("Git, Pkgconf")
+Stage0 += bb.packages(ospackages=["git", "pkgconf"])
+
+
+################################################################################
+Stage0 += comment("step2: start")
+Stage0 += comment("Install network stack packages and OpenMPI")
+
+# Get network stack configuration
 netconfig = config["network_stack"]
 
-## Install Mellanox OFED userspace libraries
+# Install Mellanox OFED userspace libraries
 mlnx_ofed = bb.mlnx_ofed(version=netconfig["mlnx_ofed"])
 Stage0 += mlnx_ofed
 
-## Install KNEM headers
+# Install KNEM headers
 if netconfig["knem"]:
     knem_prefix = "/usr/local/knem"
     knem = bb.knem(prefix=knem_prefix)
@@ -90,7 +113,7 @@ if netconfig["knem"]:
 else:
     knem_prefix = False
 
-## Install XPMEM userspace library
+# Install XPMEM userspace library
 if netconfig["xpmem"]:
     xpmem_prefix = "/usr/local/xpmem"
     xpmem = bb.xpmem(prefix=xpmem_prefix)
@@ -98,7 +121,7 @@ if netconfig["xpmem"]:
 else:
     xpmem_prefix = False
 
-## Install UCX
+# Install UCX
 ucx_prefix = "/usr/local/ucx"
 ucx = bb.ucx(
     prefix=ucx_prefix,
@@ -111,7 +134,7 @@ ucx = bb.ucx(
 )
 Stage0 += ucx
 
-## Install PMIx
+# Install PMIx
 match netconfig["pmix"]:
     case "internal":
         pmix_prefix = "internal"
@@ -120,7 +143,7 @@ match netconfig["pmix"]:
         pmix = bb.pmix(prefix=pmix_prefix, version=netconfig["pmix"])
         Stage0 += pmix
 
-## Install OpenMPI
+# Install OpenMPI
 ompi = bb.openmpi(
     prefix="/usr/local/openmpi",
     version=netconfig["ompi"],
@@ -128,3 +151,46 @@ ompi = bb.openmpi(
     pmix=pmix_prefix,
 )
 Stage0 += ompi
+
+
+################################################################################
+Stage0 += comment("step3: start")
+Stage0 += comment("Compile and install OpenMPI benchmarks")
+
+# Compile bundled source code
+benchmarks_prefix = "/usr/local/benchmarks"
+benchmarks_env = {
+    "PATH": "{}/bin:$PATH".format(benchmarks_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(benchmarks_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(benchmarks_prefix),
+}
+benchmarks = bb.generic_cmake(
+    repository="https://github.com/amasini0/mpi-benchmarks.git",
+    toolchain=ompi.toolchain,
+    prefix=benchmarks_prefix,
+    devel_environment=benchmarks_env,
+    runtime_environment=benchmarks_env,
+)
+Stage0 += benchmarks
+
+
+################################################################################
+Stage0 += comment("step4: start")
+Stage0 += comment("Generate runtime image")
+
+Stage1 += baseimage(
+    image="docker.io/{}@{}".format(config["base_image"], config["digest_runtime"]),
+    _distro=config["base_os"],
+    _arch=config["arch"],
+)
+
+# Copy all default runtimes
+Stage1 += Stage0.runtime()
+
+# Manually add missing libraries
+Stage1 += comment("Libraries missing from CUDA runtime image")
+Stage1 += bb.packages(
+    ospackages=[
+        "libnuma1",
+    ]
+)
