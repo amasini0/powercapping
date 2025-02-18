@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 # Get correct config
-config_file = Path(USERARG.get("config-file", "../../configs/thea.json"))
+config_file = Path(USERARG.get("config-file", "../../configs/thea.json"))  # noqa: F821
 if not config_file.exists():
     raise RuntimeError(
         "cannot access {}: No such file or directory".format(config_file)
@@ -18,7 +18,7 @@ with open(config_file, "r") as json_file:
     config = json.load(json_file)
 
 # Set base image
-Stage0 += baseimage(
+Stage0 += baseimage(  # noqa: F821
     image="docker.io/{}@{}".format(config["base_image"], config["digest_devel"]),
     _distro=config["base_os"],
     _arch=config["arch"],
@@ -552,7 +552,7 @@ for order in [4, 5, 6]:
 Stage0 += comment("step8: start")
 Stage0 += comment("Generate runtime image")
 
-Stage1 += baseimage(
+Stage1 += baseimage(  # noqa: F821
     image="docker.io/{}@{}".format(config["base_image"], config["digest_runtime"]),
     _distro=config["base_os"],
     _arch=config["arch"],

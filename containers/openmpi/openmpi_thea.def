@@ -204,7 +204,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 https://github.com/amasini0/mpi-benchmarks.git mpi-benchmarks && cd -
-    mkdir -p /var/tmp/mpi-benchmarks/build && cd /var/tmp/mpi-benchmarks/build && CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks /var/tmp/mpi-benchmarks
+    mkdir -p /var/tmp/mpi-benchmarks/build && cd /var/tmp/mpi-benchmarks/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/benchmarks -DCMAKE_BUILD_TYPE=Release /var/tmp/mpi-benchmarks
     cmake --build /var/tmp/mpi-benchmarks/build --target all -- -j$(nproc)
     cmake --build /var/tmp/mpi-benchmarks/build --target install -- -j$(nproc)
     rm -rf /var/tmp/mpi-benchmarks
