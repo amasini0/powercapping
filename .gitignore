@@ -2,11 +2,12 @@
 __pycache__/
 .venv/
 .vscode/
-build/
-steps/
 
 # Exclude Dockerfiles
 Dockerfile
 
 # Exclude .sif images
 *.sif
+
+# Exclude steps directory 
+steps/

@@ -1,0 +1,20 @@
+{
+    "arch": "x86_64",
+    "march": "skylake",
+    "cuda_arch": "80",
+    "base_image": "nvidia/cuda",
+    "base_os": "ubuntu22",
+    "cuda_version": "12.6",
+    "tag_devel": "12.6.3-devel-ubuntu22.04",
+    "digest_devel": "sha256:1608a19a5d6f013d36abfb9ad50a42b4c0ef86f4ab48e351c6899f0280b946c1",
+    "tag_runtime": "12.6.3-runtime-ubuntu22.04",
+    "digest_runtime": "sha256:4cf7f8137bdeeb099b1f2de126e505aa1f01b6e4471d13faf93727a9bf83d539",
+    "network_stack": {
+        "mlnx_ofed": "5.8-2.0.3.0",
+        "knem": true,
+        "xpmem": true,
+        "ucx": "1.13.1",
+        "pmix": "3.1.5",
+        "ompi": "4.1.6"
+    }
+}
