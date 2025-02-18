@@ -588,31 +588,32 @@ match config["march"]:
             "Invalid or unsupported microarchitecture: {}".format(config["march"])
         )
 
-seissol_prefix = "/usr/local/seissol"
-seissol_env = {
-    "PATH": "{}/bin:$PATH".format(seissol_prefix),
-    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(seissol_prefix),
-}
-seissol_toolchain=ompi.toolchain.__copy__()
-seissol_toolchain.LDFLAGS="-lcurl"
-seissol = bb.generic_cmake(
-    repository="https://github.com/SeisSol/SeisSol.git",
-    branch="v1.3.0",
-    recursive=True,
-    toolchain=seissol_toolchain,
-    prefix=seissol_prefix,
-    cmake_opts=[
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DDEVICE_BACKEND=cuda",
-        "-DDEVICE_ARCH=sm_{}".format(config["cuda_arch"]),
-        "-DHOST_ARCH={}".format(seissol_host_arch),
-        "-DPRECISION=single",
-        "-DORDER=4",
-    ],
-    runtime_environment=seissol_env,
-)
-Stage0 += seissol
+seissol_base_prefix = "/usr/local/seissol"
+seissol_toolchain=hpccm.toolchain(LDFLAGS="-lcurl")
+for order in [4,5,6]:
+    seissol_prefix = "{}_{}".format(seissol_base_prefix, order)
+    seissol_env = {
+        "PATH": "{}/bin:$PATH".format(seissol_prefix),
+        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(seissol_prefix),
+        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(seissol_prefix),
+    }
+    seissol = bb.generic_cmake(
+        repository="https://github.com/SeisSol/SeisSol.git",
+        branch="v1.3.0",
+        recursive=True,
+        toolchain=seissol_toolchain,
+        prefix=seissol_prefix,
+        cmake_opts=[
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DDEVICE_BACKEND=cuda",
+            "-DDEVICE_ARCH=sm_{}".format(config["cuda_arch"]),
+            "-DHOST_ARCH={}".format(seissol_host_arch),
+            "-DPRECISION=single",
+            "-DORDER={}".format(order),
+        ],
+        runtime_environment=seissol_env,
+    )
+    Stage0 += seissol
 
 
 ################################################################################
@@ -647,6 +648,7 @@ Stage1 += environment(
 Stage1 += comment("Libraries missing from CUDA runtime image")
 Stage1 += bb.packages(
     ospackages=[
+        "libgomp1",
         "libnuma1",
         "libcurl4",
     ]
