@@ -152,7 +152,7 @@ Stage: devel
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.18.0 https://github.com/openucx/ucx.git ucx && cd -
     cd /var/tmp/ucx
     ./autogen.sh
-    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-optimizations --with-cuda=/usr/local/cuda --with-knem=/usr/local/knem --with-rdmacm --with-verbs --with-xpmem=/usr/local/xpmem
+    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-mt --enable-optimizations --with-cuda=/usr/local/cuda --with-knem=/usr/local/knem --with-rdmacm --with-verbs --with-xpmem=/usr/local/xpmem
     make -j$(nproc)
     make -j$(nproc) install
     rm -rf /var/tmp/ucx

@@ -90,6 +90,7 @@ ucx = bb.ucx(
     ofed=True,
     knem=knem_prefix,
     xpmem=xpmem_prefix,
+    enable_mt=True,
 )
 Stage0 += ucx
 
