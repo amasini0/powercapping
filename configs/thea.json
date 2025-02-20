@@ -11,8 +11,9 @@
     "digest_runtime": "sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498",
     "network_stack": {
         "mlnx_ofed": "24.04-0.7.0.0",
-        "knem": true,
+        "knem": false,
         "xpmem": true,
+        "gdrcopy": true,
         "ucx": "1.18.0",
         "pmix": "internal",
         "ompi": "5.0.3"

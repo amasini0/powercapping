@@ -80,6 +80,14 @@ if netconfig["xpmem"]:
 else:
     xpmem_prefix = False
 
+# Install gdrcopy userspace library
+if netconfig["gdrcopy"]:
+    gdrcopy_prefix = "/usr/local/gdrcopy"
+    gdrcopy = bb.gdrcopy(prefix=gdrcopy_prefix)
+    Stage0 += gdrcopy
+else:
+    gdrcopy_prefix = False
+
 # Install UCX
 ucx_prefix = "/usr/local/ucx"
 ucx = bb.ucx(
@@ -90,6 +98,8 @@ ucx = bb.ucx(
     ofed=True,
     knem=knem_prefix,
     xpmem=xpmem_prefix,
+    gdrcopy=gdrcopy_prefix,
+    enable_mt=True,
 )
 Stage0 += ucx
 

@@ -82,26 +82,6 @@ Stage: devel
         librdmacm1
     rm -rf /var/lib/apt/lists/*
 
-# KNEM version 1.1.4
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        ca-certificates \
-        git
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch knem-1.1.4 https://gitlab.inria.fr/knem/knem.git knem && cd -
-    mkdir -p /usr/local/knem
-    cd /var/tmp/knem
-    mkdir -p /usr/local/knem/include
-    cp common/*.h /usr/local/knem/include
-    rm -rf /var/tmp/knem
-%environment
-    export CPATH=/usr/local/knem/include:$CPATH
-%post
-    export CPATH=/usr/local/knem/include:$CPATH
-
 # XPMEM branch master
 %post
     apt-get update -y
@@ -132,6 +112,30 @@ Stage: devel
     export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
 
+# GDRCOPY version 2.2
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/NVIDIA/gdrcopy/archive/v2.2.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v2.2.tar.gz -C /var/tmp -z
+    cd /var/tmp/gdrcopy-2.2
+    mkdir -p /usr/local/gdrcopy/include /usr/local/gdrcopy/lib
+    make prefix=/usr/local/gdrcopy lib lib_install
+    rm -rf /var/tmp/gdrcopy-2.2 /var/tmp/v2.2.tar.gz
+%environment
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+
 # UCX https://github.com/openucx/ucx.git v1.18.0
 %post
     apt-get update -y
@@ -152,7 +156,7 @@ Stage: devel
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.18.0 https://github.com/openucx/ucx.git ucx && cd -
     cd /var/tmp/ucx
     ./autogen.sh
-    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-mt --enable-optimizations --with-cuda=/usr/local/cuda --with-knem=/usr/local/knem --with-rdmacm --with-verbs --with-xpmem=/usr/local/xpmem
+    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-mt --enable-optimizations --with-cuda=/usr/local/cuda --with-gdrcopy=/usr/local/gdrcopy --with-rdmacm --with-verbs --with-xpmem=/usr/local/xpmem --without-knem
     make -j$(nproc)
     make -j$(nproc) install
     rm -rf /var/tmp/ucx
@@ -666,14 +670,6 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
         librdmacm1
     rm -rf /var/lib/apt/lists/*
 
-# KNEM
-%files from devel
-    /usr/local/knem /usr/local/knem
-%environment
-    export CPATH=/usr/local/knem/include:$CPATH
-%post
-    export CPATH=/usr/local/knem/include:$CPATH
-
 # XPMEM
 %files from devel
     /usr/local/xpmem /usr/local/xpmem
@@ -685,6 +681,18 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     export CPATH=/usr/local/xpmem/include:$CPATH
     export LD_LIBRARY_PATH=/usr/local/xpmem/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/xpmem/lib:$LIBRARY_PATH
+
+# GDRCOPY
+%files from devel
+    /usr/local/gdrcopy /usr/local/gdrcopy
+%environment
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
 
 # UCX
 %post
