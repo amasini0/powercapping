@@ -245,11 +245,11 @@ Stage: devel
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch llvmorg-18.1.8 https://github.com/llvm/llvm-project.git llvm-project && cd -
     cd /var/tmp/llvm-project
     echo 'Start stage 1 build ...'
-    cmake -S llvm -B stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
-    cmake --build stage1-build --parallel
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build /var/tmp/llvm-project/stage1-build --parallel
     echo 'Start stage 2 build ...'
-    cmake -S llvm -B stage2-build -DCMAKE_C_COMPILER=stage1-build/bin/clang -DCMAKE_CXX_COMPILER=stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
-    cmake --build stage2-build --parallel --target install
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage2-build -DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang -DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build /var/tmp/llvm-project/stage2-build --parallel --target install
     rm -rf /var/tmp/llvm-project
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
@@ -452,14 +452,15 @@ Stage: devel
     export PATH=/usr/local/openblas/bin:$PATH
     export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
 
-# https://gitlab.com/libeigen/eigen.git
+# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
 %post
     cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch 3.4 https://gitlab.com/libeigen/eigen.git eigen && cd -
-    mkdir -p /var/tmp/eigen/build && cd /var/tmp/eigen/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen -DCMAKE_BUILD_TYPE=Release /var/tmp/eigen
-    cmake --build /var/tmp/eigen/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/eigen/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/eigen
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/eigen-3.4.0.tar.gz -C /var/tmp -z
+    mkdir -p /var/tmp/eigen-3.4.0/build && cd /var/tmp/eigen-3.4.0/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen -DCMAKE_BUILD_TYPE=Release /var/tmp/eigen-3.4.0
+    cmake --build /var/tmp/eigen-3.4.0/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/eigen-3.4.0/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/eigen-3.4.0 /var/tmp/eigen-3.4.0.tar.gz
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
     export CPATH=/usr/local/eigen/include:$CPATH
@@ -628,7 +629,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -637,7 +638,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -646,7 +647,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -857,7 +858,7 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
 %post
     export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
 
-# https://gitlab.com/libeigen/eigen.git
+# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
 %files from devel
     /usr/local/eigen /usr/local/eigen
 %environment

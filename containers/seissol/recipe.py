@@ -160,7 +160,7 @@ Stage0 += comment("Install AdaptiveCpp for SYCL compilation support")
 # llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
 # Stage0 += llvm
 
-# Install LLVM (2-stage)
+# Install LLVM with NVPTX support (2-stage build)
 match config["arch"]:
     case "x86_64":
         llvm_host_target = "X86"
@@ -177,8 +177,8 @@ llvm_env = {
 }
 llvm_stage_1 = [
     "cmake",
-    "-S llvm",
-    "-B stage1-build",
+    "-S /var/tmp/llvm-project/llvm",
+    "-B /var/tmp/llvm-project/stage1-build",
     "-DCMAKE_BUILD_TYPE=Release",
     '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
     '-DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp"',
@@ -196,10 +196,10 @@ llvm_stage_1 = [
 ]
 llvm_stage_2 = [
     "cmake",
-    "-S llvm",
-    "-B stage2-build",
-    "-DCMAKE_C_COMPILER=stage1-build/bin/clang",
-    "-DCMAKE_CXX_COMPILER=stage1-build/bin/clang++",
+    "-S /var/tmp/llvm-project/llvm",
+    "-B /var/tmp/llvm-project/stage2-build",
+    "-DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang",
+    "-DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++",
     "-DCMAKE_INSTALL_PREFIX={}".format(llvm_prefix),
     "-DCMAKE_BUILD_TYPE=Release",
     '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
@@ -222,10 +222,10 @@ llvm = bb.generic_build(
     build=[
         "echo 'Start stage 1 build ...'",
         " ".join(llvm_stage_1),
-        "cmake --build stage1-build --parallel",
+        "cmake --build /var/tmp/llvm-project/stage1-build --parallel",
         "echo 'Start stage 2 build ...'",
         " ".join(llvm_stage_2),
-        "cmake --build stage2-build --parallel --target install",
+        "cmake --build /var/tmp/llvm-project/stage2-build --parallel --target install",
     ],
     devel_environment=llvm_env,
     runtime_environment=llvm_env,
@@ -441,8 +441,7 @@ eigen_env = {
     "PKG_CONFIG_PATH": "{}/share/pkgconfig:$PKG_CONFIG_PATH".format(eigen_prefix),
 }
 eigen = bb.generic_cmake(
-    repository="https://gitlab.com/libeigen/eigen.git",
-    branch="3.4",
+    url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
     prefix=eigen_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
@@ -667,7 +666,6 @@ for order in [4, 5, 6]:
             "-DHOST_ARCH={}".format(seissol_host_arch),
             "-DPRECISION=single",
             "-DORDER={}".format(order),
-            "-DEIGEN3_INCLUDE_DIR={}/include/eigen3".format(eigen_prefix),
         ],
         runtime_environment=seissol_env,
     )
