@@ -566,7 +566,7 @@ match config["march"]:
     case "skylake":
         seissol_host_arch = "skx"
     case "neoverse_v2":
-        seissol_host_arch = "sve128"
+        seissol_host_arch = "neon"
     case _:
         raise ValueError(
             "Invalid or unsupported microarchitecture: {}".format(config["march"])
