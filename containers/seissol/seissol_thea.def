@@ -42,7 +42,7 @@ Stage: devel
         python3-wheel
     rm -rf /var/lib/apt/lists/*
 
-# CMake version 3.27.8
+# CMake version 3.31.4
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -51,10 +51,10 @@ Stage: devel
     rm -rf /var/lib/apt/lists/*
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.27.8/cmake-3.27.8-linux-aarch64.sh
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-aarch64.sh
     mkdir -p /usr/local
-    /bin/sh /var/tmp/cmake-3.27.8-linux-aarch64.sh --prefix=/usr/local --skip-license
-    rm -rf /var/tmp/cmake-3.27.8-linux-aarch64.sh
+    /bin/sh /var/tmp/cmake-3.31.4-linux-aarch64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.31.4-linux-aarch64.sh
 %environment
     export PATH=/usr/local/bin:$PATH
 %post
@@ -239,49 +239,30 @@ Stage: devel
 
 # Install AdaptiveCpp for SYCL compilation support
 
-# LLVM compiler
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        clang-18 \
-        clang-format-18 \
-        clang-tidy-18 \
-        clang-tools-18 \
-        libc++-18-dev \
-        libc++1-18 \
-        libc++abi1-18 \
-        libclang-18-dev \
-        libclang1-18 \
-        liblldb-18-dev \
-        libomp-18-dev \
-        lld-18 \
-        lldb-18 \
-        llvm-18 \
-        llvm-18-dev \
-        llvm-18-runtime
-    rm -rf /var/lib/apt/lists/*
+# https://github.com/llvm/llvm-project.git
 %post
     cd /
-    update-alternatives --install /usr/bin/clang clang $(which clang-18) 30
-    update-alternatives --install /usr/bin/clang++ clang++ $(which clang++-18) 30
-    update-alternatives --install /usr/bin/clang-format clang-format $(which clang-format-18) 30
-    update-alternatives --install /usr/bin/clang-tidy clang-tidy $(which clang-tidy-18) 30
-    update-alternatives --install /usr/bin/lldb lldb $(which lldb-18) 30
-    update-alternatives --install /usr/bin/llvm-config llvm-config $(which llvm-config-18) 30
-    update-alternatives --install /usr/bin/llvm-cov llvm-cov $(which llvm-cov-18) 30
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch llvmorg-18.1.8 https://github.com/llvm/llvm-project.git llvm-project && cd -
+    cd /var/tmp/llvm-project
+    echo 'Start stage 1 build ...'
+    cmake -S llvm -B stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build stage1-build --parallel
+    echo 'Start stage 2 build ...'
+    cmake -S llvm -B stage2-build -DCMAKE_C_COMPILER=stage1-build/bin/clang -DCMAKE_CXX_COMPILER=stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build stage2-build --parallel --target install
+    rm -rf /var/tmp/llvm-project
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
 
 # Boost version 1.86.0
 %post
@@ -316,7 +297,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git AdaptiveCpp && cd -
-    mkdir -p /var/tmp/AdaptiveCpp/build && cd /var/tmp/AdaptiveCpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/acpp -DCMAKE_BUILD_TYPE=Release -DACPP_COMPILER_FEATURE_PROFILE=minimal -DDEFAULT_TARGETS=cuda:sm_90 /var/tmp/AdaptiveCpp
+    mkdir -p /var/tmp/AdaptiveCpp/build && cd /var/tmp/AdaptiveCpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/acpp -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_BUILD_TYPE=Release -DDEFAULT_TARGETS=cuda:sm_90 /var/tmp/AdaptiveCpp
     cmake --build /var/tmp/AdaptiveCpp/build --target all -- -j$(nproc)
     cmake --build /var/tmp/AdaptiveCpp/build --target install -- -j$(nproc)
     rm -rf /var/tmp/AdaptiveCpp
@@ -791,28 +772,6 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
 %post
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
-
-# LLVM compiler runtime
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        apt-transport-https \
-        ca-certificates \
-        gnupg \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    mkdir -p /usr/share/keyrings
-    rm -f /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg.gpg
-    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" >> /etc/apt/sources.list.d/hpccm.list
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libclang1-18 \
-        libomp5-18 \
-        llvm-18-runtime
-    rm -rf /var/lib/apt/lists/*
 
 # Boost
 %files from devel

@@ -54,7 +54,7 @@ Stage0 += bb.packages(
 )
 
 # Install CMake
-Stage0 += bb.cmake(eula=True, version="3.27.8")
+Stage0 += bb.cmake(eula=True, version="3.31.4")
 
 # Install Git and pkgconf
 Stage0 += comment("Git, Pkgconf")
@@ -157,7 +157,79 @@ Stage0 += comment("Install AdaptiveCpp for SYCL compilation support")
 # Install LLVM
 ## Passing _trunk_version="0.1" to force correct toolchain installation from upstream
 ## repos, which otherwise fails due to incorrect package name specification
-llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
+# llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
+# Stage0 += llvm
+
+# Install LLVM (2-stage)
+match config["arch"]:
+    case "x86_64":
+        llvm_host_target = "X86"
+    case "aarch64":
+        llvm_host_target = "AArch64"
+
+llvm_prefix = "/usr/local/llvm"
+llvm_env = {
+    "PATH": "{}/bin:$PATH".format(llvm_prefix),
+    "CPATH": "{}/include:$CPATH".format(llvm_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(llvm_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(llvm_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(llvm_prefix),
+}
+llvm_stage_1 = [
+    "cmake",
+    "-S llvm",
+    "-B stage1-build",
+    "-DCMAKE_BUILD_TYPE=Release",
+    '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
+    '-DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp"',
+    '-DLLVM_TARGETS_TO_BUILD="{};NVPTX"'.format(llvm_host_target),
+    "-DLLVM_BUILD_LLVM_DYLIB=ON",
+    "-DLLVM_ENABLE_ASSERTIONS=OFF",
+    "-DLLVM_ENABLE_OCAMLDOC=OFF",
+    "-DLLVM_ENABLE_BINDINGS=OFF",
+    "-DLLVM_ENABLE_DUMP=OFF",
+    "-DLLVM_INCLUDE_BENCHMARKS=OFF",
+    "-DLLVM_INCLUDE_EXAMPLES=OFF",
+    "-DLLVM_INCLUDE_TESTS=OFF",
+    "-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF",
+    "-DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90",
+]
+llvm_stage_2 = [
+    "cmake",
+    "-S llvm",
+    "-B stage2-build",
+    "-DCMAKE_C_COMPILER=stage1-build/bin/clang",
+    "-DCMAKE_CXX_COMPILER=stage1-build/bin/clang++",
+    "-DCMAKE_INSTALL_PREFIX={}".format(llvm_prefix),
+    "-DCMAKE_BUILD_TYPE=Release",
+    '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
+    '-DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp"',
+    '-DLLVM_TARGETS_TO_BUILD="{};NVPTX"'.format(llvm_host_target),
+    "-DLLVM_BUILD_LLVM_DYLIB=ON",
+    "-DLLVM_ENABLE_ASSERTIONS=OFF",
+    "-DLLVM_ENABLE_OCAMLDOC=OFF",
+    "-DLLVM_ENABLE_BINDINGS=OFF",
+    "-DLLVM_ENABLE_DUMP=OFF",
+    "-DLLVM_INCLUDE_BENCHMARKS=OFF",
+    "-DLLVM_INCLUDE_EXAMPLES=OFF",
+    "-DLLVM_INCLUDE_TESTS=OFF",
+    "-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF",
+    "-DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90",
+]
+llvm = bb.generic_build(
+    repository="https://github.com/llvm/llvm-project.git",
+    branch="llvmorg-18.1.8",
+    build=[
+        "echo 'Start stage 1 build ...'",
+        " ".join(llvm_stage_1),
+        "cmake --build stage1-build --parallel",
+        "echo 'Start stage 2 build ...'",
+        " ".join(llvm_stage_2),
+        "cmake --build stage2-build --parallel --target install",
+    ],
+    devel_environment=llvm_env,
+    runtime_environment=llvm_env,
+)
 Stage0 += llvm
 
 # Install Boost
@@ -221,8 +293,9 @@ adaptive_cpp = bb.generic_cmake(
     branch="v24.06.0",
     prefix=adaptive_cpp_prefix,
     cmake_opts=[
+        "-DCMAKE_C_COMPILER={}/bin/clang".format(llvm_prefix),
+        "-DCMAKE_CXX_COMPILER={}/bin/clang++".format(llvm_prefix),
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
         "-DDEFAULT_TARGETS=cuda:sm_{}".format(config["cuda_arch"]),
     ],
     devel_environment=adaptive_cpp_env,
