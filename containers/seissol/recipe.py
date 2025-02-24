@@ -172,6 +172,12 @@ match config["arch"]:
         )
 
 boost_prefix = "/usr/local/boost"
+boost_env = {
+    "CPATH": "{}/include:$CPATH".format(boost_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(boost_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(boost_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(boost_prefix),
+}
 boost = bb.boost(
     version="1.86.0",
     baseurl="https://archives.boost.io/release/1.86.0/source",  # force installation from official archive
@@ -194,8 +200,12 @@ boost = bb.boost(
         "--with-filesystem",
         "--prefix=/usr/local/boost",
     ],
+    environment=False,
 )
 Stage0 += boost
+Stage0 += environment(
+    variables=boost_env,
+)
 
 # Install AdaptiveCpp
 adaptive_cpp_prefix = "/usr/local/acpp"
@@ -361,6 +371,9 @@ eigen = bb.generic_cmake(
     repository="https://gitlab.com/libeigen/eigen.git",
     branch="3.4",
     prefix=eigen_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+    ],
     devel_environment=eigen_env,
     runtime_environment=eigen_env,
 )
