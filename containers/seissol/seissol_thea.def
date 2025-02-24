@@ -1,14 +1,30 @@
 # NOTE: this definition file depends on features only available in
 # Singularity 3.2 and later.
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:12cf7fda869f87f821113f010ee64b3a230a3fed2a56fb6d3c93fb8a82472816
+From: docker.io/nvidia/cuda@sha256:13381961419ea62f4417059d5e196f39f5f4965c22adae753c5eb3b53b417995
 Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
 
 # step1: start
 
-# Install GCC 12, Python and build tools over base image
+# Install GCC 13, Python and other build tools on base image
+
+# GNU compiler
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common
+    apt-add-repository ppa:ubuntu-toolchain-r/test -y
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        g++-13 \
+        gcc-13
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    update-alternatives --install /usr/bin/g++ g++ $(which g++-13) 30
+    update-alternatives --install /usr/bin/gcc gcc $(which gcc-13) 30
+    update-alternatives --install /usr/bin/gcov gcov $(which gcov-13) 30
 
 # Python
 %post
@@ -52,6 +68,25 @@ Stage: devel
         git \
         pkgconf
     rm -rf /var/lib/apt/lists/*
+
+# https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/binutils-2.43.tar.xz -C /var/tmp -J
+    cd /var/tmp/binutils-2.43
+    CC=gcc ./configure --prefix=/usr/local/binutils
+    make -j$(nproc)
+    make install -j$(nproc)
+    rm -rf /var/tmp/binutils-2.43 /var/tmp/binutils-2.43.tar.xz
+%environment
+    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
+    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
+    export PATH=/usr/local/binutils/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
+    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
+    export PATH=/usr/local/binutils/bin:$PATH
 
 # step2: start
 
@@ -429,15 +464,14 @@ Stage: devel
     export PATH=/usr/local/openblas/bin:$PATH
     export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
 
-# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+# https://gitlab.com/libeigen/eigen.git
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/eigen-3.4.0.tar.gz -C /var/tmp -z
-    mkdir -p /var/tmp/eigen-3.4.0/build && cd /var/tmp/eigen-3.4.0/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen /var/tmp/eigen-3.4.0
-    cmake --build /var/tmp/eigen-3.4.0/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/eigen-3.4.0/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/eigen-3.4.0 /var/tmp/eigen-3.4.0.tar.gz
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch 3.4 https://gitlab.com/libeigen/eigen.git eigen && cd -
+    mkdir -p /var/tmp/eigen/build && cd /var/tmp/eigen/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/eigen /var/tmp/eigen
+    cmake --build /var/tmp/eigen/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/eigen/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/eigen
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/eigen/share/eigen3/cmake:$CMAKE_PREFIX_PATH
     export CPATH=/usr/local/eigen/include:$CPATH
@@ -563,7 +597,7 @@ Stage: devel
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
     cd /var/tmp/libxsmm
-    make PREFIX=/usr/local/libxsmm PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1 -j$(nproc) install-minimal
+    make PREFIX=/usr/local/libxsmm PLATFORM=1 JIT=1 -j$(nproc) install-minimal
     rm -rf /var/tmp/libxsmm
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
@@ -606,7 +640,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=4 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -615,7 +649,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=5 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -624,7 +658,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=6 -DEIGEN3_INCLUDE_DIR=/usr/local/eigen/include/eigen3 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -634,9 +668,19 @@ Stage: devel
 # Generate runtime image
 
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433b1fa9d2903bb7a68498
+From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390
 %post
     . /.singularity.d/env/10-docker*.sh
+
+# GNU compiler runtime
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common
+    apt-add-repository ppa:ubuntu-toolchain-r/test -y
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libgomp1
+    rm -rf /var/lib/apt/lists/*
 
 # Python
 %post
@@ -644,6 +688,18 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3
     rm -rf /var/lib/apt/lists/*
+
+# https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz
+%files from devel
+    /usr/local/binutils /usr/local/binutils
+%environment
+    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
+    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
+    export PATH=/usr/local/binutils/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/binutils/lib:$LD_LIBRARY_PATH
+    export LIBRARY=/usr/local/binutils/lib:$LIBRARY_PATH
+    export PATH=/usr/local/binutils/bin:$PATH
 
 # Mellanox OFED version 24.04-0.7.0.0
 %post
@@ -839,7 +895,7 @@ From: docker.io/nvidia/cuda@sha256:77e5fa9d1849bdba5a340be90d8ca30fb13d8f62fb433
 %post
     export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
 
-# https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+# https://gitlab.com/libeigen/eigen.git
 %files from devel
     /usr/local/eigen /usr/local/eigen
 %environment

@@ -31,7 +31,15 @@ hpccm.config.set_cpu_target(config["march"])
 
 ################################################################################
 Stage0 += comment("step1: start")
-Stage0 += comment("Install GCC 12, Python and build tools over base image")
+Stage0 += comment("Install GCC 13, Python and other build tools on base image")
+
+# Install GCC 13
+gcc = bb.gnu(
+    version="13",
+    extra_repository=True,
+    fortran=False,
+)
+Stage0 += gcc
 
 # Install Python with virtual environments support
 python = bb.python(python2=False)
@@ -51,6 +59,26 @@ Stage0 += bb.cmake(eula=True, version="3.27.8")
 # Install Git and pkgconf
 Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
+
+# Install GNU Binutils
+binutils_prefix = "/usr/local/binutils"
+binutils_env = {
+    "PATH": "{}/bin:$PATH".format(binutils_prefix),
+    "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
+}
+binutils = bb.generic_build(
+    url="https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz",
+    prefix=binutils_prefix,
+    build=[
+        "CC=gcc ./configure --prefix={}".format(binutils_prefix),
+        "make -j$(nproc)",
+        "make install -j$(nproc)",
+    ],
+    devel_environment=binutils_env,
+    runtime_environment=binutils_env,
+)
+Stage0 += binutils
 
 
 ################################################################################
@@ -330,7 +358,8 @@ eigen_env = {
     "PKG_CONFIG_PATH": "{}/share/pkgconfig:$PKG_CONFIG_PATH".format(eigen_prefix),
 }
 eigen = bb.generic_cmake(
-    url="https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+    repository="https://gitlab.com/libeigen/eigen.git",
+    branch="3.4",
     prefix=eigen_prefix,
     devel_environment=eigen_env,
     runtime_environment=eigen_env,
@@ -464,7 +493,7 @@ Stage0 += comment("Install CPU and GPU code generators")
 # Install libxsmm
 match config["arch"]:
     case "aarch64":
-        libxsmm_extra_build_opts = "PLATFORM=1 AR=aarch64-linux-gnu-ar JIT=1"
+        libxsmm_extra_build_opts = "PLATFORM=1 JIT=1"
     case "x86_64":
         libxsmm_extra_build_opts = ""
     case _:
@@ -524,7 +553,7 @@ match config["march"]:
     case "skylake":
         seissol_host_arch = "skx"
     case "neoverse_v2":
-        seissol_host_arch = "neon"
+        seissol_host_arch = "sve128"
     case _:
         raise ValueError(
             "Invalid or unsupported microarchitecture: {}".format(config["march"])
@@ -552,6 +581,7 @@ for order in [4, 5, 6]:
             "-DHOST_ARCH={}".format(seissol_host_arch),
             "-DPRECISION=single",
             "-DORDER={}".format(order),
+            "-DEIGEN3_INCLUDE_DIR={}/include/eigen3".format(eigen_prefix),
         ],
         runtime_environment=seissol_env,
     )
