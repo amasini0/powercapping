@@ -1027,3 +1027,9 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
         libgomp1 \
         libnuma1
     rm -rf /var/lib/apt/lists/*
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        --only-upgrade libstdc++6
+    rm -rf /var/lib/apt/lists/*

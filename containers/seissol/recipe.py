@@ -710,3 +710,10 @@ Stage1 += bb.packages(
         "libcurl4",
     ]
 )
+
+# Update libstdc++6 to latest version
+Stage1 += bb.packages(
+    ospackages=[
+        "--only-upgrade libstdc++6",
+    ],
+)
