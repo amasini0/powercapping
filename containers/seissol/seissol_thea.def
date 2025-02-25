@@ -562,7 +562,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --recursive https://github.com/SeisSol/easi.git easi && cd - && cd /var/tmp/easi && git checkout 17200158e485fb3294f65f6abfb12470209cda61 && cd -
-    mkdir -p /var/tmp/easi/build && cd /var/tmp/easi/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/easi -DCMAKE_BUILD_TYPE=Release -DEASICUBE=OFF -DIMPALAJIT=ON -DASAGI=ON /var/tmp/easi
+    mkdir -p /var/tmp/easi/build && cd /var/tmp/easi/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/easi -DCMAKE_BUILD_TYPE=Release -DIMPALAJIT=ON -DASAGI=ON -DLUA=ON /var/tmp/easi
     cmake --build /var/tmp/easi/build --target all -- -j$(nproc)
     cmake --build /var/tmp/easi/build --target install -- -j$(nproc)
     rm -rf /var/tmp/easi
@@ -773,6 +773,22 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
 %post
     export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
     export PATH=/usr/local/openmpi/bin:$PATH
+
+# https://github.com/llvm/llvm-project.git
+%files from devel
+    /usr/local/llvm /usr/local/llvm
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
 
 # Boost
 %files from devel

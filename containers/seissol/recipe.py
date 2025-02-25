@@ -219,6 +219,7 @@ llvm_stage_2 = [
 llvm = bb.generic_build(
     repository="https://github.com/llvm/llvm-project.git",
     branch="llvmorg-18.1.8",
+    prefix=llvm_prefix,
     build=[
         "echo 'Start stage 1 build ...'",
         " ".join(llvm_stage_1),
@@ -561,9 +562,9 @@ easi = bb.generic_cmake(
     prefix=easi_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DEASICUBE=OFF",
         "-DIMPALAJIT=ON",
         "-DASAGI=ON",
+        "-DLUA=ON",
     ],
     devel_environment=easi_env,
     runtime_environment=easi_env,
