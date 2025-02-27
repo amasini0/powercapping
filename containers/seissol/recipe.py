@@ -33,14 +33,6 @@ hpccm.config.set_cpu_target(config["march"])
 Stage0 += comment("step1: start")
 Stage0 += comment("Install GCC 13, Python and other build tools on base image")
 
-# Install GCC 13
-gcc = bb.gnu(
-    version="13",
-    extra_repository=True,
-    fortran=False,
-)
-Stage0 += gcc
-
 # Install Python with virtual environments support
 python = bb.python(python2=False)
 Stage0 += python
@@ -59,26 +51,6 @@ Stage0 += bb.cmake(eula=True, version="3.31.4")
 # Install Git and pkgconf
 Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
-
-# Install GNU Binutils
-binutils_prefix = "/usr/local/binutils"
-binutils_env = {
-    "PATH": "{}/bin:$PATH".format(binutils_prefix),
-    "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
-}
-binutils = bb.generic_build(
-    url="https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz",
-    prefix=binutils_prefix,
-    build=[
-        "CC=gcc ./configure --prefix={}".format(binutils_prefix),
-        "make -j$(nproc)",
-        "make install -j$(nproc)",
-    ],
-    devel_environment=binutils_env,
-    runtime_environment=binutils_env,
-)
-Stage0 += binutils
 
 
 ################################################################################
@@ -157,80 +129,7 @@ Stage0 += comment("Install AdaptiveCpp for SYCL compilation support")
 # Install LLVM
 ## Passing _trunk_version="0.1" to force correct toolchain installation from upstream
 ## repos, which otherwise fails due to incorrect package name specification
-# llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
-# Stage0 += llvm
-
-# Install LLVM with NVPTX support (2-stage build)
-match config["arch"]:
-    case "x86_64":
-        llvm_host_target = "X86"
-    case "aarch64":
-        llvm_host_target = "AArch64"
-
-llvm_prefix = "/usr/local/llvm"
-llvm_env = {
-    "PATH": "{}/bin:$PATH".format(llvm_prefix),
-    "CPATH": "{}/include:$CPATH".format(llvm_prefix),
-    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(llvm_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(llvm_prefix),
-    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(llvm_prefix),
-}
-llvm_stage_1 = [
-    "cmake",
-    "-S /var/tmp/llvm-project/llvm",
-    "-B /var/tmp/llvm-project/stage1-build",
-    "-DCMAKE_BUILD_TYPE=Release",
-    '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
-    '-DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp"',
-    '-DLLVM_TARGETS_TO_BUILD="{};NVPTX"'.format(llvm_host_target),
-    "-DLLVM_BUILD_LLVM_DYLIB=ON",
-    "-DLLVM_ENABLE_ASSERTIONS=OFF",
-    "-DLLVM_ENABLE_OCAMLDOC=OFF",
-    "-DLLVM_ENABLE_BINDINGS=OFF",
-    "-DLLVM_ENABLE_DUMP=OFF",
-    "-DLLVM_INCLUDE_BENCHMARKS=OFF",
-    "-DLLVM_INCLUDE_EXAMPLES=OFF",
-    "-DLLVM_INCLUDE_TESTS=OFF",
-    "-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF",
-    "-DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90",
-]
-llvm_stage_2 = [
-    "cmake",
-    "-S /var/tmp/llvm-project/llvm",
-    "-B /var/tmp/llvm-project/stage2-build",
-    "-DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang",
-    "-DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++",
-    "-DCMAKE_INSTALL_PREFIX={}".format(llvm_prefix),
-    "-DCMAKE_BUILD_TYPE=Release",
-    '-DLLVM_ENABLE_PROJECTS="clang;lld;polly"',
-    '-DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp"',
-    '-DLLVM_TARGETS_TO_BUILD="{};NVPTX"'.format(llvm_host_target),
-    "-DLLVM_BUILD_LLVM_DYLIB=ON",
-    "-DLLVM_ENABLE_ASSERTIONS=OFF",
-    "-DLLVM_ENABLE_OCAMLDOC=OFF",
-    "-DLLVM_ENABLE_BINDINGS=OFF",
-    "-DLLVM_ENABLE_DUMP=OFF",
-    "-DLLVM_INCLUDE_BENCHMARKS=OFF",
-    "-DLLVM_INCLUDE_EXAMPLES=OFF",
-    "-DLLVM_INCLUDE_TESTS=OFF",
-    "-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF",
-    "-DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90",
-]
-llvm = bb.generic_build(
-    repository="https://github.com/llvm/llvm-project.git",
-    branch="llvmorg-18.1.8",
-    prefix=llvm_prefix,
-    build=[
-        "echo 'Start stage 1 build ...'",
-        " ".join(llvm_stage_1),
-        "cmake --build /var/tmp/llvm-project/stage1-build --parallel",
-        "echo 'Start stage 2 build ...'",
-        " ".join(llvm_stage_2),
-        "cmake --build /var/tmp/llvm-project/stage2-build --parallel --target install",
-    ],
-    devel_environment=llvm_env,
-    runtime_environment=llvm_env,
-)
+llvm = bb.llvm(version="18", upstream=True, toolset=True, _trunk_version="0.1")
 Stage0 += llvm
 
 # Install Boost
@@ -294,9 +193,8 @@ adaptive_cpp = bb.generic_cmake(
     branch="v24.06.0",
     prefix=adaptive_cpp_prefix,
     cmake_opts=[
-        "-DCMAKE_C_COMPILER={}/bin/clang".format(llvm_prefix),
-        "-DCMAKE_CXX_COMPILER={}/bin/clang++".format(llvm_prefix),
         "-DCMAKE_BUILD_TYPE=Release",
+        "-DACPP_COMPILER_FEATURE_PROFILE=minimal",
         "-DDEFAULT_TARGETS=cuda:sm_{}".format(config["cuda_arch"]),
     ],
     devel_environment=adaptive_cpp_env,
@@ -311,7 +209,6 @@ Stage0 += comment("Install I/O, meshing and math libraries required by SeisSol")
 
 
 # Install parallel HDF5
-## Monkey patch building block to get latest version
 def hdf5_download_latest(self):
     """Construct the series of shell commands, i.e., fill in
     self.__commands"""
@@ -330,6 +227,7 @@ def hdf5_download_latest(self):
     )
 
 
+## Monkey patch building block to get latest version
 setattr(bb.hdf5, "_hdf5__download", hdf5_download_latest)
 
 hdf5_prefix = "/usr/local/hdf5"
@@ -349,7 +247,6 @@ Stage0 += hdf5
 
 
 # Install NetCDF
-## Monkey patch building block for download on thea
 def netcdf_download_latest(self):
     """Set download source based on user parameters"""
     pkgname = "netcdf-c"
@@ -361,6 +258,7 @@ def netcdf_download_latest(self):
     self._netcdf__url_c = "{0}/{1}".format(self._netcdf__baseurl_c, tarball)
 
 
+## Monkey patch building block for download on thea
 setattr(bb.netcdf, "_netcdf__download", netcdf_download_latest)
 
 netcdf_prefix = "/usr/local/netcdf"
@@ -562,6 +460,7 @@ easi = bb.generic_cmake(
     prefix=easi_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
+        "-DEASICUBE=OFF",
         "-DIMPALAJIT=ON",
         "-DASAGI=ON",
         "-DLUA=ON",
@@ -712,8 +611,8 @@ Stage1 += bb.packages(
 )
 
 # Update libstdc++6 to latest version
-Stage1 += bb.packages(
-    ospackages=[
-        "--only-upgrade libstdc++6",
-    ],
-)
+# Stage1 += bb.packages(
+#     ospackages=[
+#         "--only-upgrade libstdc++6",
+#     ],
+# )
