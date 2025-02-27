@@ -33,14 +33,6 @@ hpccm.config.set_cpu_target(config["march"])
 Stage0 += comment("step1: start")
 Stage0 += comment("Install GCC 13, Python and other build tools on base image")
 
-# Install GCC 13
-gcc = bb.gnu(
-    version="13",
-    extra_repository=True,
-    fortran=False,
-)
-Stage0 += gcc
-
 # Install Python with virtual environments support
 python = bb.python(python2=False)
 Stage0 += python
@@ -54,31 +46,11 @@ Stage0 += bb.packages(
 )
 
 # Install CMake
-Stage0 += bb.cmake(eula=True, version="3.27.8")
+Stage0 += bb.cmake(eula=True, version="3.31.4")
 
 # Install Git and pkgconf
 Stage0 += comment("Git, Pkgconf")
 Stage0 += bb.packages(ospackages=["git", "pkgconf"])
-
-# Install GNU Binutils
-binutils_prefix = "/usr/local/binutils"
-binutils_env = {
-    "PATH": "{}/bin:$PATH".format(binutils_prefix),
-    "LIBRARY": "{}/lib:$LIBRARY_PATH".format(binutils_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(binutils_prefix),
-}
-binutils = bb.generic_build(
-    url="https://ftp.gnu.org/gnu/binutils/binutils-2.43.tar.xz",
-    prefix=binutils_prefix,
-    build=[
-        "CC=gcc ./configure --prefix={}".format(binutils_prefix),
-        "make -j$(nproc)",
-        "make install -j$(nproc)",
-    ],
-    devel_environment=binutils_env,
-    runtime_environment=binutils_env,
-)
-Stage0 += binutils
 
 
 ################################################################################
