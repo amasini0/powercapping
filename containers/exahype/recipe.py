@@ -31,7 +31,7 @@ hpccm.config.set_cpu_target(config["march"])
 
 ################################################################################
 Stage0 += comment("step1: start")
-Stage0 += comment("Install GCC 13, Python and other build tools on base image")
+Stage0 += comment("Install build tools over base image")
 
 # Install Python with virtual environments support
 python = bb.python(python2=False)
@@ -372,7 +372,7 @@ Stage0 += exahype
 
 
 ################################################################################
-Stage0 += comment("step4: start")
+Stage0 += comment("step6: start")
 Stage0 += comment("Generate runtime image")
 
 Stage1 += baseimage(  # noqa: F821

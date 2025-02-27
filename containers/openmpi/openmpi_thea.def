@@ -8,7 +8,7 @@ Stage: devel
 
 # step1: start
 
-# Install GCC 13, Python and other build tools on base image
+# Install build tools over base image
 
 # Python
 %post

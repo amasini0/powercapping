@@ -8,7 +8,7 @@ Stage: devel
 
 # step1: start
 
-# Install GCC 13, Python and other build tools on base image
+# Install build tools over base image
 
 # Python
 %post
@@ -386,7 +386,7 @@ Stage: devel
     export LIBRARY_PATH=/usr/local/exahype/lib:$LIBRARY_PATH
     export PATH=/usr/local/exahype/bin:$PATH
 
-# step4: start
+# step6: start
 
 # Generate runtime image
 
