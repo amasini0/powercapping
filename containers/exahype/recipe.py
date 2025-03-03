@@ -347,8 +347,8 @@ exahype_env = {
     "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(exahype_prefix),
 }
 exahype_toolchain = hpccm.toolchain(
-    CC="clang",
-    CXX="clang++",
+    CC="{}/bin/clang".format(llvm_prefix),
+    CXX="{}/bin/clang++".format(llvm_prefix),
 )
 exahype = bb.generic_cmake(
     repository="https://gitlab.lrz.de/hpcsoftware/Peano.git",
@@ -363,7 +363,12 @@ exahype = bb.generic_cmake(
         "-DENABLE_EXAHYPE=ON",
         "-DENABLE_LOADBALANCING=ON",
         "-DENABLE_BLOCKSTRUCTURED=ON",
+        "-DUSE_CCACHE=OFF",
+        "-DWITH_MPI=ON",
         "-DWITH_MULTITHREADING=omp",
+        "-DWITH_HDF5=ON",
+        "-DWITH_NETCDF=ON",
+        "-DWITH_LIBXSMM=ON",
     ],
     devel_environment=exahype_env,
     runtime_environment=exahype_env,

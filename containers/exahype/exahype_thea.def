@@ -373,7 +373,7 @@ Stage: devel
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch muc/exahype-godunov https://gitlab.lrz.de/hpcsoftware/Peano.git Peano && cd -
     cd /var/tmp/Peano
     export MARCH=sm_90
-    mkdir -p /var/tmp/Peano/build && cd /var/tmp/Peano/build && CC=clang CXX=clang++ cmake -DCMAKE_INSTALL_PREFIX=/usr/local/exahype -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DWITH_MULTITHREADING=omp /var/tmp/Peano
+    mkdir -p /var/tmp/Peano/build && cd /var/tmp/Peano/build && CC=/usr/local/llvm/bin/clang CXX=/usr/local/llvm/bin/clang++ cmake -DCMAKE_INSTALL_PREFIX=/usr/local/exahype -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_HDF5=ON -DWITH_NETCDF=ON -DWITH_LIBXSMM=ON /var/tmp/Peano
     cmake --build /var/tmp/Peano/build --target all -- -j$(nproc)
     cmake --build /var/tmp/Peano/build --target install -- -j$(nproc)
     rm -rf /var/tmp/Peano
