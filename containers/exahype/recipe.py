@@ -2,7 +2,7 @@
 
 import hpccm
 import hpccm.building_blocks as bb
-from hpccm.primitives import baseimage, comment, environment
+from hpccm.primitives import baseimage, comment, copy, environment, shell
 import json
 from pathlib import Path
 
@@ -282,98 +282,92 @@ Stage0 += environment(
     }
 )
 
-# Install OpenBLAS
-openblas_prefix = "/usr/local/openblas"
-openblas = bb.openblas(
-    version="0.3.27",
-    prefix=openblas_prefix,
-)
-Stage0 += openblas
-Stage0 += environment(
-    variables={
-        "PATH": "{}/bin:$PATH".format(openblas_prefix),
-        "CPATH": "{}/include:$CPATH".format(openblas_prefix),
-        "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(openblas_prefix),
-        "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(openblas_prefix),
-        "PKG_CONFIG_PATH": "{}/lib/pkgconfig:$PKG_CONFIG_PATH".format(openblas_prefix),
-        "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(openblas_prefix),
-    }
-)
-
-# Install libxsmm
-match config["arch"]:
-    case "aarch64":
-        libxsmm_extra_build_opts = "PLATFORM=1 JIT=1"
-    case "x86_64":
-        libxsmm_extra_build_opts = ""
-    case _:
-        raise ValueError(
-            "Invalid or unsupported architecture: {}".format(config["arch"])
-        )
-
-libxsmm_prefix = "/usr/local/libxsmm"
-libxsmm_env = {
-    "PATH": "{}/bin:$PATH".format(libxsmm_prefix),
-    "CPATH": "{}/include:$CPATH".format(libxsmm_prefix),
-    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(libxsmm_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(libxsmm_prefix),
-    "PKG_CONFIG_PATH": "{}/lib:$PKG_CONFIG_PATH".format(libxsmm_prefix),
-    "CMAKE_PREFIX_PATH": "{}:$CMAKE_PREFIX_PATH".format(libxsmm_prefix),
-}
-libxsmm = bb.generic_build(
-    repository="https://github.com/libxsmm/libxsmm.git",
-    commit="419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227",  # last commit as of 28/01/2025
-    prefix=libxsmm_prefix,
-    build=[
-        "make PREFIX={0} {1} -j$(nproc) install-minimal".format(
-            libxsmm_prefix, libxsmm_extra_build_opts
-        ),
-    ],
-    devel_environment=libxsmm_env,
-    runtime_environment=libxsmm_env,
-)
-Stage0 += libxsmm
-
 
 ################################################################################
 Stage0 += comment("step5: start")
 Stage0 += comment("Install ExaHyPE")
 
-# Install Peano with ExaHyPE enabled
-exahype_prefix = "/usr/local/exahype"
+# Install large files storage for pulling meshes from Git
+Stage0 += bb.packages(
+    ospackages=[
+        "git-lfs",
+    ],
+)
+
+# Install ExaHyPE with test simulation cases
+## Define build commands for Peano with GPU support
+peano_workspace = "/root"
+peano_build = [
+    "cmake",
+    "-S {}/Peano".format(peano_workspace),
+    "-B {}/Peano/build".format(peano_workspace),
+    "-DCMAKE_C_COMPILER={}/bin/clang".format(llvm_prefix),
+    "-DCMAKE_CXX_COMPILER={}/bin/clang++".format(llvm_prefix),
+    "-DCMAKE_CXX_STANDARD=17",  # required when using clang
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DENABLE_EXAHYPE=ON",
+    "-DENABLE_LOADBALANCING=ON",
+    "-DENABLE_BLOCKSTRUCTURED=ON",
+    "-DUSE_CCACHE=OFF",
+    "-DWITH_NETCDF=ON",
+    "-DWITH_MPI=ON",
+    "-DWITH_MULTITHREADING=omp",
+    "-DWITH_GPU=omp",
+    "-DWITH_GPU_ARCH=sm_{}".format(config["cuda_arch"]),
+]
+
+## Define build commands for exahype applications
+application_bindirs = []
+
+### Elastic point explosion
+exahype_elastic_pe_dir = (
+    "{}/Peano/applications/exahype2/elastic/point_explosion".format(peano_workspace)
+)
+exahype_elastic_pe_build = [
+    "cd {}".format(exahype_elastic_pe_dir),
+    "sed -i 's/min_depth=6/min_depth=8/' point_explosion.py",
+    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/'",
+    "python point_explosion.py --stateless",
+]
+application_bindirs.append(exahype_elastic_pe_dir)
+
+### Euler point explosion
+exahype_euler_pe_dir = "{}/Peano/applications/exahype2/euler/point_explosion".format(
+    peano_workspace
+)
+exahype_euler_pe_build = [
+    "cd {}".format(exahype_euler_pe_dir),
+    "sed -i 's/min_depth=4/min_depth=7/' point_explosion.py",
+    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/'",
+    "python point_explosion.py --stateless",
+]
+application_bindirs.append(exahype_euler_pe_dir)
+
+## Setup required environment variables
 exahype_env = {
-    "PATH": "{}/bin:$PATH".format(exahype_prefix),
-    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(exahype_prefix),
-    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(exahype_prefix),
+    "PATH": "{}:$PATH".format(":".join(application_bindirs)),
+    "LIBRARY_PATH": "{}/Peano/build/lib:$LIBRARY_PATH".format(peano_workspace),
+    "LD_LIBRARY_PATH": "{}/Peano/build/lib$LD_LIBRARY_PATH".format(peano_workspace),
 }
-exahype_toolchain = hpccm.toolchain(
-    CC="{}/bin/clang".format(llvm_prefix),
-    CXX="{}/bin/clang++".format(llvm_prefix),
+
+## Build peano and exahype applications
+Stage0 += shell(
+    commands=[
+        "cd /",
+        "mkdir -p {0} && cd {0} && git clone --branch muc/exahype --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano".format(
+            peano_workspace
+        ),
+        "sed -i '9,11 N;s/^\\n$/\\n#include <iomanip>\\n/' {}/Peano/src/exahype2/fd/BoundaryConditions.cpp".format(
+            peano_workspace
+        ),  # fix setprecision error
+        " ".join(peano_build),
+        "python -m venv {0}/Peano/venv && . {0}/Peano/venv/bin/activate && pip install -e {0}/Peano".format(
+            peano_workspace
+        ),
+        " && ".join(exahype_elastic_pe_build),
+        " && ".join(exahype_euler_pe_build),
+    ]
 )
-exahype = bb.generic_cmake(
-    repository="https://gitlab.lrz.de/hpcsoftware/Peano.git",
-    branch="muc/exahype-godunov",
-    toolchain=exahype_toolchain,
-    prefix=exahype_prefix,
-    preconfigure=[
-        "export MARCH=sm_{}".format(config["cuda_arch"]),
-    ],
-    cmake_opts=[
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DENABLE_EXAHYPE=ON",
-        "-DENABLE_LOADBALANCING=ON",
-        "-DENABLE_BLOCKSTRUCTURED=ON",
-        "-DUSE_CCACHE=OFF",
-        "-DWITH_MPI=ON",
-        "-DWITH_MULTITHREADING=omp",
-        "-DWITH_HDF5=ON",
-        "-DWITH_NETCDF=ON",
-        "-DWITH_LIBXSMM=ON",
-    ],
-    devel_environment=exahype_env,
-    runtime_environment=exahype_env,
-)
-Stage0 += exahype
 
 
 ################################################################################
@@ -388,6 +382,17 @@ Stage1 += baseimage(  # noqa: F821
 
 # Copy all default runtimes
 Stage1 += Stage0.runtime()
+
+# Copy exahype folder
+Stage1 += comment("Copy ExaHyPE build files and setup environment")
+Stage1 += copy(
+    files={
+        "{0}/Peano".format(peano_workspace): "{0}/Peano".format(peano_workspace),
+    },
+)
+Stage1 += environment(
+    variables=exahype_env,
+)
 
 # Manually add missing libraries
 Stage1 += comment("Libraries missing from CUDA runtime image")

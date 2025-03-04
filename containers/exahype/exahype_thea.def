@@ -302,89 +302,25 @@ Stage: devel
     export CMAKE_PREFIX_PATH=/usr/local/netcdf:$CMAKE_PREFIX_PATH
     export PKG_CONFIG_PATH=/usr/local/netcdf/lib/pkgconfig:$PKG_CONFIG_PATH
 
-# OpenBLAS version 0.3.27
-%post
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        perl \
-        tar \
-        wget
-    rm -rf /var/lib/apt/lists/*
-%post
-    cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
-    mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
-    cd /var/tmp/OpenBLAS-0.3.27
-    make TARGET=ARMV8 USE_OPENMP=1
-    mkdir -p /usr/local/openblas
-    cd /var/tmp/OpenBLAS-0.3.27
-    make install PREFIX=/usr/local/openblas
-    rm -rf /var/tmp/OpenBLAS-0.3.27 /var/tmp/v0.3.27.tar.gz
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/openblas/lib/cmake:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/openblas/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/openblas/lib:$LIBRARY_PATH
-    export PATH=/usr/local/openblas/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/openblas/lib/pkgconfig:$PKG_CONFIG_PATH
-
-# https://github.com/libxsmm/libxsmm.git
-%post
-    cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
-    cd /var/tmp/libxsmm
-    make PREFIX=/usr/local/libxsmm PLATFORM=1 JIT=1 -j$(nproc) install-minimal
-    rm -rf /var/tmp/libxsmm
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-
 # step5: start
 
 # Install ExaHyPE
 
-# https://gitlab.lrz.de/hpcsoftware/Peano.git
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git-lfs
+    rm -rf /var/lib/apt/lists/*
+
 %post
     cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch muc/exahype-godunov https://gitlab.lrz.de/hpcsoftware/Peano.git Peano && cd -
-    cd /var/tmp/Peano
-    export MARCH=sm_90
-    mkdir -p /var/tmp/Peano/build && cd /var/tmp/Peano/build && CC=/usr/local/llvm/bin/clang CXX=/usr/local/llvm/bin/clang++ cmake -DCMAKE_INSTALL_PREFIX=/usr/local/exahype -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_HDF5=ON -DWITH_NETCDF=ON -DWITH_LIBXSMM=ON /var/tmp/Peano
-    cmake --build /var/tmp/Peano/build --target all -- -j$(nproc)
-    cmake --build /var/tmp/Peano/build --target install -- -j$(nproc)
-    rm -rf /var/tmp/Peano
-%environment
-    export LD_LIBRARY_PATH=/usr/local/exahype/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/exahype/lib:$LIBRARY_PATH
-    export PATH=/usr/local/exahype/bin:$PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/exahype/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/exahype/lib:$LIBRARY_PATH
-    export PATH=/usr/local/exahype/bin:$PATH
+    cd /
+    mkdir -p /root && cd /root && git clone --branch muc/exahype --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano
+    sed -i '9,11 N;s/^\n$/\n#include <iomanip>\n/' /root/Peano/src/exahype2/fd/BoundaryConditions.cpp
+    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=omp -DWITH_GPU_ARCH=sm_90
+    python -m venv /root/Peano/venv && . /root/Peano/venv/bin/activate && pip install -e /root/Peano
+    cd /root/Peano/applications/exahype2/elastic/point_explosion && sed -i 's/min_depth=6/min_depth=8/' point_explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' && python point_explosion.py --stateless
+    cd /root/Peano/applications/exahype2/euler/point_explosion && sed -i 's/min_depth=4/min_depth=7/' point_explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' && python point_explosion.py --stateless
 
 # step6: start
 
@@ -542,43 +478,19 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
     export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
     export PATH=/usr/local/netcdf/bin:$PATH
 
-# OpenBLAS
-%files from devel
-    /usr/local/openblas /usr/local/openblas
-%environment
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
-%post
-    export LD_LIBRARY_PATH=/usr/local/openblas/lib:$LD_LIBRARY_PATH
+# Copy ExaHyPE build files and setup environment
 
-# https://github.com/libxsmm/libxsmm.git
-%files from devel
-    /usr/local/libxsmm /usr/local/libxsmm
-%environment
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
-%post
-    export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
-    export CPATH=/usr/local/libxsmm/include:$CPATH
-    export LD_LIBRARY_PATH=/usr/local/libxsmm/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/libxsmm/lib:$LIBRARY_PATH
-    export PATH=/usr/local/libxsmm/bin:$PATH
-    export PKG_CONFIG_PATH=/usr/local/libxsmm/lib:$PKG_CONFIG_PATH
+%files
+    /root/Peano /root/Peano
 
-# https://gitlab.lrz.de/hpcsoftware/Peano.git
-%files from devel
-    /usr/local/exahype /usr/local/exahype
 %environment
-    export LD_LIBRARY_PATH=/usr/local/exahype/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/exahype/lib:$LIBRARY_PATH
-    export PATH=/usr/local/exahype/bin:$PATH
+    export LD_LIBRARY_PATH=/root/Peano/build/lib$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/applications/exahype2/elastic/point_explosion:/root/Peano/applications/exahype2/euler/point_explosion:$PATH
 %post
-    export LD_LIBRARY_PATH=/usr/local/exahype/lib:$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/usr/local/exahype/lib:$LIBRARY_PATH
-    export PATH=/usr/local/exahype/bin:$PATH
+    export LD_LIBRARY_PATH=/root/Peano/build/lib$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/applications/exahype2/elastic/point_explosion:/root/Peano/applications/exahype2/euler/point_explosion:$PATH
 
 # Libraries missing from CUDA runtime image
 
