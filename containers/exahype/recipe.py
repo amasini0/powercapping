@@ -353,7 +353,6 @@ exahype_env = {
 ## Build peano and exahype applications
 Stage0 += shell(
     commands=[
-        "cd /",
         "mkdir -p {0} && cd {0} && git clone --branch muc/exahype --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano".format(
             peano_workspace
         ),
@@ -362,10 +361,10 @@ Stage0 += shell(
         ),  # fix setprecision error
         " ".join(peano_build),
         "cmake --build {}/Peano/build --parallel".format(peano_workspace),
-        "cat {0}/Peano/requirements.txt | head -n -4 > {0}/Peano/requirements.txt".format(
+        "sed -i '8,10 D' {}/Peano/requirements.txt".format(
             peano_workspace
-        ),
-        "python3 -m venv {0}/Peano/venv && . {0}/Peano/venv/bin/activate && pip install -e {0}/Peano".format(
+        ),  # remove vtk and co. from requirements.txt
+        "python3 -m venv {0}/Peano/codegen && . {0}/Peano/codegen/bin/activate && pip install -e {0}/Peano".format(
             peano_workspace
         ),
         " && ".join(exahype_elastic_pe_build),
@@ -390,6 +389,7 @@ Stage1 += Stage0.runtime()
 # Copy exahype folder
 Stage1 += comment("Copy ExaHyPE build files and setup environment")
 Stage1 += copy(
+    _from="devel",
     files={
         "{0}/Peano".format(peano_workspace): "{0}/Peano".format(peano_workspace),
     },
