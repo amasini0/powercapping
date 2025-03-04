@@ -319,6 +319,7 @@ Stage: devel
     sed -i '9,11 N;s/^\n$/\n#include <iomanip>\n/' /root/Peano/src/exahype2/fd/BoundaryConditions.cpp
     cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=omp -DWITH_GPU_ARCH=sm_90
     cmake --build /root/Peano/build --parallel
+    cat /root/Peano/requirements.txt | head -n -4 > /root/Peano/requirements.txt
     python3 -m venv /root/Peano/venv && . /root/Peano/venv/bin/activate && pip install -e /root/Peano
     cd /root/Peano/applications/exahype2/elastic/point-explosion && sed -i 's/min_depth=6/min_depth=8/' point-explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py && python point-explosion.py --stateless
     cd /root/Peano/applications/exahype2/euler/point-explosion && sed -i 's/min_depth=4/min_depth=7/' point-explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py && python point-explosion.py --stateless
