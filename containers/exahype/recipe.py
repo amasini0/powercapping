@@ -321,25 +321,25 @@ application_bindirs = []
 
 ### Elastic point explosion
 exahype_elastic_pe_dir = (
-    "{}/Peano/applications/exahype2/elastic/point_explosion".format(peano_workspace)
+    "{}/Peano/applications/exahype2/elastic/point-explosion".format(peano_workspace)
 )
 exahype_elastic_pe_build = [
     "cd {}".format(exahype_elastic_pe_dir),
-    "sed -i 's/min_depth=6/min_depth=8/' point_explosion.py",
-    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/'",
-    "python point_explosion.py --stateless",
+    "sed -i 's/min_depth=6/min_depth=8/' point-explosion.py",
+    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
+    "python point-explosion.py --stateless",
 ]
 application_bindirs.append(exahype_elastic_pe_dir)
 
 ### Euler point explosion
-exahype_euler_pe_dir = "{}/Peano/applications/exahype2/euler/point_explosion".format(
+exahype_euler_pe_dir = "{}/Peano/applications/exahype2/euler/point-explosion".format(
     peano_workspace
 )
 exahype_euler_pe_build = [
     "cd {}".format(exahype_euler_pe_dir),
-    "sed -i 's/min_depth=4/min_depth=7/' point_explosion.py",
-    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/'",
-    "python point_explosion.py --stateless",
+    "sed -i 's/min_depth=4/min_depth=7/' point-explosion.py",
+    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
+    "python point-explosion.py --stateless",
 ]
 application_bindirs.append(exahype_euler_pe_dir)
 
@@ -361,6 +361,7 @@ Stage0 += shell(
             peano_workspace
         ),  # fix setprecision error
         " ".join(peano_build),
+        "cmake --build {}/Peano/build --parallel".format(peano_workspace),
         "python -m venv {0}/Peano/venv && . {0}/Peano/venv/bin/activate && pip install -e {0}/Peano".format(
             peano_workspace
         ),
