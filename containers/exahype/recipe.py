@@ -362,7 +362,7 @@ Stage0 += shell(
         ),  # fix setprecision error
         " ".join(peano_build),
         "cmake --build {}/Peano/build --parallel".format(peano_workspace),
-        "python -m venv {0}/Peano/venv && . {0}/Peano/venv/bin/activate && pip install -e {0}/Peano".format(
+        "python3 -m venv {0}/Peano/venv && . {0}/Peano/venv/bin/activate && pip install -e {0}/Peano".format(
             peano_workspace
         ),
         " && ".join(exahype_elastic_pe_build),
