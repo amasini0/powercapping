@@ -124,7 +124,7 @@ Stage0 += ompi
 
 ################################################################################
 Stage0 += comment("step3: start")
-Stage0 += comment("Enable OpenMP offload support")
+Stage0 += comment("Enable OpenMP offload and SYCL support")
 
 # Install LLVM with NVPTX support (2-stage build)
 match config["arch"]:
@@ -198,6 +198,75 @@ llvm = bb.generic_build(
     runtime_environment=llvm_env,
 )
 Stage0 += llvm
+
+# Install Boost
+match config["arch"]:
+    case "x86_64":
+        boost_arch = "x86"
+    case "aarch64":
+        boost_arch = "arm"
+    case _:
+        raise ValueError(
+            "Invalid or unsupported architecture: {}".format(config["arch"])
+        )
+
+boost_prefix = "/usr/local/boost"
+boost_env = {
+    "CPATH": "{}/include:$CPATH".format(boost_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(boost_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(boost_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(boost_prefix),
+}
+boost = bb.boost(
+    version="1.86.0",
+    baseurl="https://archives.boost.io/release/1.86.0/source",  # force installation from official archive
+    prefix=boost_prefix,
+    bootstrap_opts=[
+        "--with-libraries=fiber,context,atomic,filesystem",
+        "--show-libraries",
+    ],
+    b2_opts=[
+        "variant=release",
+        "threading=multi",
+        "link=shared",
+        "visibility=hidden",
+        'cxxflags="-std=c++17"',
+        "address-model=64",
+        "architecture={}".format(boost_arch),
+        "--with-fiber",
+        "--with-context",
+        "--with-atomic",
+        "--with-filesystem",
+        "--prefix=/usr/local/boost",
+    ],
+    environment=False,
+)
+Stage0 += boost
+Stage0 += environment(
+    variables=boost_env,
+)
+
+# Install AdaptiveCpp
+adaptive_cpp_prefix = "/usr/local/acpp"
+adaptive_cpp_env = {
+    "PATH": "{}/bin:$PATH".format(adaptive_cpp_prefix),
+    "CPATH": "{}/include:$CPATH".format(adaptive_cpp_prefix),
+    "LIBRARY_PATH": "{}/lib:$LIBRARY_PATH".format(adaptive_cpp_prefix),
+    "LD_LIBRARY_PATH": "{}/lib:$LD_LIBRARY_PATH".format(adaptive_cpp_prefix),
+    "CMAKE_PREFIX_PATH": "{}/lib/cmake:$CMAKE_PREFIX_PATH".format(adaptive_cpp_prefix),
+}
+adaptive_cpp = bb.generic_cmake(
+    repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
+    branch="v24.06.0",
+    prefix=adaptive_cpp_prefix,
+    cmake_opts=[
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DACPP_COMPILER_FEATURE_PROFILE=full",
+    ],
+    devel_environment=adaptive_cpp_env,
+    runtime_environment=adaptive_cpp_env,
+)
+Stage0 += adaptive_cpp
 
 
 ################################################################################
@@ -297,6 +366,7 @@ Stage0 += bb.packages(
 # Install ExaHyPE with test simulation cases
 ## Define build commands for Peano with GPU support
 peano_workspace = "/root"
+peano_branch = "muc/exahype-enclave-tasking"
 peano_build = [
     "cmake",
     "-S {}/Peano".format(peano_workspace),
@@ -312,8 +382,9 @@ peano_build = [
     "-DWITH_NETCDF=ON",
     "-DWITH_MPI=ON",
     "-DWITH_MULTITHREADING=omp",
-    "-DWITH_GPU=omp",
-    "-DWITH_GPU_ARCH=sm_{}".format(config["cuda_arch"]),
+    "-DWITH_GPU=sycl",
+    "-DWITH_USM=ON",
+    # "-DWITH_GPU_ARCH=sm_{}".format(config["cuda_arch"]), # Leave commented to use "generic" AdaptiveCpp target
 ]
 
 ## Define build commands for exahype applications
@@ -353,8 +424,9 @@ exahype_env = {
 ## Build peano and exahype applications
 Stage0 += shell(
     commands=[
-        "mkdir -p {0} && cd {0} && git clone --branch muc/exahype --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano".format(
-            peano_workspace
+        "mkdir -p {0} && cd {0} && git clone --branch {1} --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano".format(
+            peano_workspace,
+            peano_branch,
         ),
         "sed -i '9,11 N;s/^\\n$/\\n#include <iomanip>\\n/' {}/Peano/src/exahype2/fd/BoundaryConditions.cpp".format(
             peano_workspace
