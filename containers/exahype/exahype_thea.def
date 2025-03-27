@@ -261,7 +261,7 @@ Stage: devel
 # https://github.com/AdaptiveCpp/AdaptiveCpp.git
 %post
     cd /
-    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git AdaptiveCpp && cd -
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v24.10.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git AdaptiveCpp && cd -
     mkdir -p /var/tmp/AdaptiveCpp/build && cd /var/tmp/AdaptiveCpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/acpp -DCMAKE_BUILD_TYPE=Release -DACPP_COMPILER_FEATURE_PROFILE=full /var/tmp/AdaptiveCpp
     cmake --build /var/tmp/AdaptiveCpp/build --target all -- -j$(nproc)
     cmake --build /var/tmp/AdaptiveCpp/build --target install -- -j$(nproc)
@@ -365,8 +365,8 @@ Stage: devel
 %post
     cd /
     mkdir -p /root && cd /root && git clone --branch muc/exahype-enclave-tasking --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano
-    sed -i '9,11 N;s/^\n$/\n#include <iomanip>\n/' /root/Peano/src/exahype2/fd/BoundaryConditions.cpp
-    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=sycl -DWITH_USM=ON
+    mv /root/Peano/cmake/AdaptiveCpp.cmake /root/Peano/cmake/AdaptiveCPP.cmake
+    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=sycl -DWITH_USM=ON -DWITH_GPU_ARCH='none'
     cmake --build /root/Peano/build --parallel
     sed -i '8,10 D' /root/Peano/requirements.txt
     python3 -m venv /root/Peano/codegen && . /root/Peano/codegen/bin/activate && pip install -e /root/Peano

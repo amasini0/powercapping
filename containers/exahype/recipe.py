@@ -257,7 +257,7 @@ adaptive_cpp_env = {
 }
 adaptive_cpp = bb.generic_cmake(
     repository="https://github.com/AdaptiveCpp/AdaptiveCpp.git",
-    branch="v24.06.0",
+    branch="v24.10.0",
     prefix=adaptive_cpp_prefix,
     cmake_opts=[
         "-DCMAKE_BUILD_TYPE=Release",
@@ -384,7 +384,7 @@ peano_build = [
     "-DWITH_MULTITHREADING=omp",
     "-DWITH_GPU=sycl",
     "-DWITH_USM=ON",
-    # "-DWITH_GPU_ARCH=sm_{}".format(config["cuda_arch"]), # Leave commented to use "generic" AdaptiveCpp target
+    "-DWITH_GPU_ARCH='none'",  # to use AdaptiveCpp generic target
 ]
 
 ## Define build commands for exahype applications
@@ -428,9 +428,9 @@ Stage0 += shell(
             peano_workspace,
             peano_branch,
         ),
-        "sed -i '9,11 N;s/^\\n$/\\n#include <iomanip>\\n/' {}/Peano/src/exahype2/fd/BoundaryConditions.cpp".format(
+        "mv {0}/Peano/cmake/AdaptiveCpp.cmake {0}/Peano/cmake/AdaptiveCPP.cmake".format(
             peano_workspace
-        ),  # fix setprecision error
+        ),
         " ".join(peano_build),
         "cmake --build {}/Peano/build --parallel".format(peano_workspace),
         "sed -i '8,10 D' {}/Peano/requirements.txt".format(
