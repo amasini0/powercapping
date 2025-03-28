@@ -373,7 +373,7 @@ peano_build = [
     "-B {}/Peano/build".format(peano_workspace),
     "-DCMAKE_C_COMPILER={}/bin/clang".format(llvm_prefix),
     "-DCMAKE_CXX_COMPILER={}/bin/clang++".format(llvm_prefix),
-    "-DCMAKE_CXX_STANDARD=17",  # required when using clang
+    "-DCMAKE_CXX_STANDARD=17",  # required when using clang with openmp offload
     "-DCMAKE_BUILD_TYPE=Release",
     "-DENABLE_EXAHYPE=ON",
     "-DENABLE_LOADBALANCING=ON",
@@ -384,7 +384,7 @@ peano_build = [
     "-DWITH_MULTITHREADING=omp",
     "-DWITH_GPU=sycl",
     "-DWITH_USM=ON",
-    "-DWITH_GPU_ARCH='none'",  # to use AdaptiveCpp generic target
+    "-DWITH_GPU_ARCH=none",  # to use AdaptiveCpp generic target
 ]
 
 ## Define build commands for exahype applications
@@ -398,7 +398,7 @@ exahype_elastic_pe_build = [
     "cd {}".format(exahype_elastic_pe_dir),
     "sed -i 's/min_depth=6/min_depth=8/' point-explosion.py",
     "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
-    "python point-explosion.py --stateless",
+    "python point-explosion.py",
 ]
 application_bindirs.append(exahype_elastic_pe_dir)
 
@@ -410,9 +410,21 @@ exahype_euler_pe_build = [
     "cd {}".format(exahype_euler_pe_dir),
     "sed -i 's/min_depth=4/min_depth=7/' point-explosion.py",
     "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
-    "python point-explosion.py --stateless",
+    "python point-explosion.py",
 ]
 application_bindirs.append(exahype_euler_pe_dir)
+
+#  Tafjord Landslide simulation build
+exahype_tafjord_landslide_dir = (
+    "{}/Peano/applications/exahype2/shallow-water/tafjord-landslide".format(
+        peano_workspace
+    )
+)
+exahype_tafjord_landslide_build = [
+    "cd {}".format(exahype_tafjord_landslide_dir),
+    "python tafjord-landslide.py -md 8 -ns 0",
+]
+application_bindirs.append(exahype_tafjord_landslide_dir)
 
 ## Setup required environment variables
 exahype_env = {
@@ -424,12 +436,10 @@ exahype_env = {
 ## Build peano and exahype applications
 Stage0 += shell(
     commands=[
+        "git lfs install",
         "mkdir -p {0} && cd {0} && git clone --branch {1} --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano".format(
             peano_workspace,
             peano_branch,
-        ),
-        "mv {0}/Peano/cmake/AdaptiveCpp.cmake {0}/Peano/cmake/AdaptiveCPP.cmake".format(
-            peano_workspace
         ),
         " ".join(peano_build),
         "cmake --build {}/Peano/build --parallel".format(peano_workspace),
@@ -441,6 +451,7 @@ Stage0 += shell(
         ),
         " && ".join(exahype_elastic_pe_build),
         " && ".join(exahype_euler_pe_build),
+        " && ".join(exahype_tafjord_landslide_build),
     ]
 )
 
