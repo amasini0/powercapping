@@ -133,6 +133,7 @@ match config["arch"]:
     case "aarch64":
         llvm_host_target = "AArch64"
 
+llvm_build_parallelism = USERARG.get("llvm-build-par", "")  # noqa: F821
 llvm_prefix = "/usr/local/llvm"
 llvm_env = {
     "PATH": "{}/bin:$PATH".format(llvm_prefix),
@@ -189,10 +190,14 @@ llvm = bb.generic_build(
     build=[
         "echo 'Start stage 1 build ...'",
         " ".join(llvm_stage_1),
-        "cmake --build /var/tmp/llvm-project/stage1-build --parallel",
+        "cmake --build /var/tmp/llvm-project/stage1-build --parallel {}".format(
+            llvm_build_parallelism
+        ),
         "echo 'Start stage 2 build ...'",
         " ".join(llvm_stage_2),
-        "cmake --build /var/tmp/llvm-project/stage2-build --parallel --target install",
+        "cmake --build /var/tmp/llvm-project/stage2-build --parallel {} --target install".format(
+            llvm_build_parallelism
+        ),
     ],
     devel_environment=llvm_env,
     runtime_environment=llvm_env,
@@ -297,17 +302,19 @@ def hdf5_download_latest(self):
 setattr(bb.hdf5, "_hdf5__download", hdf5_download_latest)
 
 hdf5_prefix = "/usr/local/hdf5"
-hdf5_toolchain = ompi.toolchain.__copy__()
-hdf5_toolchain.CFLAGS = "-fPIC"
 hdf5 = bb.hdf5(
     baseurl="https://support.hdfgroup.org/releases/hdf5",
     version="1.14.5",  # tested only with 1.14.5
-    toolchain=hdf5_toolchain,
     prefix=hdf5_prefix,
+    toolchain=ompi.toolchain,
     configure_opts=[],  # left empty to remove --enable-fortran and --enable-cxx
+    enable_unsupported=True,
+    enable_threadsafe=True,
     enable_parallel=True,
-    disable_shared=True,
-    with_zlib=True,
+    enable_shared=True,
+    disable_fortran=True,
+    disable_java=True,
+    disable_cxx=True,
 )
 Stage0 += hdf5
 
@@ -328,20 +335,14 @@ def netcdf_download_latest(self):
 setattr(bb.netcdf, "_netcdf__download", netcdf_download_latest)
 
 netcdf_prefix = "/usr/local/netcdf"
-netcdf_toolchain = hpccm.toolchain(
-    CFLAGS="-fPIC",
-    CC="{}/bin/h5pcc".format(hdf5_prefix),
-)
 netcdf = bb.netcdf(
     version="4.9.2",  # tested only with 4.9.2 (latest version as of 28/01/2025)
-    toolchain=netcdf_toolchain,
     prefix=netcdf_prefix,
+    toolchain=ompi.toolchain,
     cxx=False,
     fortran=False,
-    disable_shared=True,
-    disable_dap=True,
+    enable_shared=True,
     disable_libxml2=True,
-    disable_byterange=True,
 )
 Stage0 += netcdf
 Stage0 += environment(
@@ -354,19 +355,18 @@ Stage0 += environment(
 
 ################################################################################
 Stage0 += comment("step5: start")
-Stage0 += comment("Install ExaHyPE")
+Stage0 += comment("Build Peano")
 
-# Install large files storage for pulling meshes from Git
+# Install Git large files storage (for ExaHyPe meshes)
 Stage0 += bb.packages(
     ospackages=[
         "git-lfs",
     ],
 )
 
-# Install ExaHyPE with test simulation cases
-## Define build commands for Peano with GPU support
-peano_workspace = "/root"
+# Build Peano
 peano_branch = "muc/exahype-enclave-tasking"
+peano_workspace = "/root"
 peano_build = [
     "cmake",
     "-S {}/Peano".format(peano_workspace),
@@ -382,58 +382,16 @@ peano_build = [
     "-DWITH_NETCDF=ON",
     "-DWITH_MPI=ON",
     "-DWITH_MULTITHREADING=omp",
-    "-DWITH_GPU=sycl",
+    "-DWITH_GPU=omp",
     "-DWITH_USM=ON",
-    "-DWITH_GPU_ARCH=none",  # to use AdaptiveCpp generic target
+    "-DWITH_GPU_ARCH=sm_90",  # set to 'none' when using AdaptiveCpp to default to 'generic' target
 ]
-
-## Define build commands for exahype applications
-application_bindirs = []
-
-### Elastic point explosion
-exahype_elastic_pe_dir = (
-    "{}/Peano/applications/exahype2/elastic/point-explosion".format(peano_workspace)
-)
-exahype_elastic_pe_build = [
-    "cd {}".format(exahype_elastic_pe_dir),
-    "sed -i 's/min_depth=6/min_depth=8/' point-explosion.py",
-    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
-    "python point-explosion.py",
-]
-application_bindirs.append(exahype_elastic_pe_dir)
-
-### Euler point explosion
-exahype_euler_pe_dir = "{}/Peano/applications/exahype2/euler/point-explosion".format(
-    peano_workspace
-)
-exahype_euler_pe_build = [
-    "cd {}".format(exahype_euler_pe_dir),
-    "sed -i 's/min_depth=4/min_depth=7/' point-explosion.py",
-    "sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py",
-    "python point-explosion.py",
-]
-application_bindirs.append(exahype_euler_pe_dir)
-
-#  Tafjord Landslide simulation build
-exahype_tafjord_landslide_dir = (
-    "{}/Peano/applications/exahype2/shallow-water/tafjord-landslide".format(
-        peano_workspace
-    )
-)
-exahype_tafjord_landslide_build = [
-    "cd {}".format(exahype_tafjord_landslide_dir),
-    "python tafjord-landslide.py -md 8 -ns 0",
-]
-application_bindirs.append(exahype_tafjord_landslide_dir)
-
-## Setup required environment variables
-exahype_env = {
-    "PATH": "{}:$PATH".format(":".join(application_bindirs)),
+peano_venv = "{}/Peano/codegen".format(peano_workspace)
+peano_env = {
+    "PATH": "{}/bin:$PATH".format(peano_venv),
     "LIBRARY_PATH": "{}/Peano/build/lib:$LIBRARY_PATH".format(peano_workspace),
-    "LD_LIBRARY_PATH": "{}/Peano/build/lib$LD_LIBRARY_PATH".format(peano_workspace),
+    "LD_LIBRARY_PATH": "{}/Peano/build/lib:$LD_LIBRARY_PATH".format(peano_workspace),
 }
-
-## Build peano and exahype applications
 Stage0 += shell(
     commands=[
         "git lfs install",
@@ -446,18 +404,71 @@ Stage0 += shell(
         "sed -i '8,10 D' {}/Peano/requirements.txt".format(
             peano_workspace
         ),  # remove vtk and co. from requirements.txt
-        "python3 -m venv {0}/Peano/codegen && . {0}/Peano/codegen/bin/activate && pip install -e {0}/Peano".format(
-            peano_workspace
+        "python3 -m venv {0} && . {0}/bin/activate && pip install -e {1}/Peano".format(
+            peano_venv,
+            peano_workspace,
         ),
-        " && ".join(exahype_elastic_pe_build),
-        " && ".join(exahype_euler_pe_build),
-        " && ".join(exahype_tafjord_landslide_build),
-    ]
+    ],
+)
+Stage0 += environment(
+    variables=peano_env,
 )
 
 
 ################################################################################
 Stage0 += comment("step6: start")
+Stage0 += comment("Build ExaHyPE Apps")
+
+exahype_prefix = "{}/Peano/applications/exahype2".format(peano_workspace)
+exahype_bindirs = []
+
+# Elastic - point explosion
+elastic_pe_dir = "{}/elastic/point-explosion".format(exahype_prefix)
+elastic_pe_build = [
+    "cd {}".format(elastic_pe_dir),
+    "python point-explosion.py -md 8 -ns 0",
+]
+Stage0 += shell(
+    commands=[
+        " && ".join(elastic_pe_build),
+    ],
+)
+exahype_bindirs.append(elastic_pe_dir)
+
+# Euler - Point explosion
+euler_pe_dir = "{}/euler/point-explosion".format(exahype_prefix)
+euler_pe_build = [
+    "cd {}".format(euler_pe_dir),
+    "python point-explosion.py -md 8 -ns 0",
+]
+Stage0 += shell(
+    commands=[
+        " && ".join(euler_pe_build),
+    ],
+)
+exahype_bindirs.append(euler_pe_dir)
+
+# Shallow water - Tafjord landslide
+tafjord_landslide_dir = "{}/shallow-water/tafjord-landslide".format(exahype_prefix)
+tafjord_landslide_build = [
+    "cd {}".format(tafjord_landslide_dir),
+    "python tafjord-landslide.py -md 8 -ns 0",
+]
+Stage0 += shell(
+    commands=[
+        " && ".join(tafjord_landslide_build),
+    ],
+)
+exahype_bindirs.append(tafjord_landslide_dir)
+
+# Set ExaHyPe environment
+exahype_env = {
+    "PATH": "{}:$PATH".format(":".join(exahype_bindirs)),
+}
+
+
+################################################################################
+Stage0 += comment("step7: start")
 Stage0 += comment("Generate runtime image")
 
 Stage1 += baseimage(  # noqa: F821
@@ -469,13 +480,16 @@ Stage1 += baseimage(  # noqa: F821
 # Copy all default runtimes
 Stage1 += Stage0.runtime()
 
-# Copy exahype folder
+# Copy Peano/ExaHyPe folder
 Stage1 += comment("Copy ExaHyPE build files and setup environment")
 Stage1 += copy(
     _from="devel",
     files={
         "{0}/Peano".format(peano_workspace): "{0}/Peano".format(peano_workspace),
     },
+)
+Stage1 += environment(
+    variables=peano_env,
 )
 Stage1 += environment(
     variables=exahype_env,
@@ -485,6 +499,7 @@ Stage1 += environment(
 Stage1 += comment("Libraries missing from CUDA runtime image")
 Stage1 += bb.packages(
     ospackages=[
+        "libcurl4",
         "libnuma1",
     ]
 )

@@ -211,10 +211,10 @@ Stage: devel
     cd /var/tmp/llvm-project
     echo 'Start stage 1 build ...'
     cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
-    cmake --build /var/tmp/llvm-project/stage1-build --parallel
+    cmake --build /var/tmp/llvm-project/stage1-build --parallel 
     echo 'Start stage 2 build ...'
     cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage2-build -DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang -DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
-    cmake --build /var/tmp/llvm-project/stage2-build --parallel --target install
+    cmake --build /var/tmp/llvm-project/stage2-build --parallel  --target install
     rm -rf /var/tmp/llvm-project
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
@@ -297,7 +297,7 @@ Stage: devel
     cd /
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://support.hdfgroup.org/releases/hdf5/v1_14/v1_14_5/downloads/hdf5-1.14.5.tar.gz
     mkdir -p /var/tmp && tar -x -f /var/tmp/hdf5-1.14.5.tar.gz -C /var/tmp -z
-    cd /var/tmp/hdf5-1.14.5 &&  CC=mpicc CFLAGS=-fPIC CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/hdf5 --disable-shared --enable-parallel --with-zlib
+    cd /var/tmp/hdf5-1.14.5 &&  CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/hdf5 --disable-cxx --disable-fortran --disable-java --enable-parallel --enable-shared --enable-threadsafe --enable-unsupported
     make -j$(nproc)
     make -j$(nproc) install
     rm -rf /var/tmp/hdf5-1.14.5 /var/tmp/hdf5-1.14.5.tar.gz
@@ -330,7 +330,7 @@ Stage: devel
     cd /
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
     mkdir -p /var/tmp && tar -x -f /var/tmp/netcdf-c-4.9.2.tar.gz -C /var/tmp -z
-    cd /var/tmp/netcdf-c-4.9.2 &&  CC=/usr/local/hdf5/bin/h5pcc CFLAGS=-fPIC ./configure --prefix=/usr/local/netcdf --disable-byterange --disable-dap --disable-libxml2 --disable-shared
+    cd /var/tmp/netcdf-c-4.9.2 &&  CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/netcdf --disable-libxml2 --enable-shared
     make -j$(nproc)
     make -j$(nproc) install
     rm -rf /var/tmp/netcdf-c-4.9.2 /var/tmp/netcdf-c-4.9.2.tar.gz
@@ -354,7 +354,7 @@ Stage: devel
 
 # step5: start
 
-# Install ExaHyPE
+# Build Peano
 
 %post
     apt-get update -y
@@ -366,15 +366,37 @@ Stage: devel
     cd /
     git lfs install
     mkdir -p /root && cd /root && git clone --branch muc/exahype-enclave-tasking --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano
-    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=sycl -DWITH_USM=ON -DWITH_GPU_ARCH=none
+    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=omp -DWITH_USM=ON -DWITH_GPU_ARCH=sm_90
     cmake --build /root/Peano/build --parallel
     sed -i '8,10 D' /root/Peano/requirements.txt
     python3 -m venv /root/Peano/codegen && . /root/Peano/codegen/bin/activate && pip install -e /root/Peano
-    cd /root/Peano/applications/exahype2/elastic/point-explosion && sed -i 's/min_depth=6/min_depth=8/' point-explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py && python point-explosion.py
-    cd /root/Peano/applications/exahype2/euler/point-explosion && sed -i 's/min_depth=4/min_depth=7/' point-explosion.py && sed -i 's/number_of_snapshots = 20/number_of_snapshots = 0/' point-explosion.py && python point-explosion.py
-    cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide && python tafjord-landslide.py -md 8 -ns 0
+
+%environment
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
 
 # step6: start
+
+# Build ExaHyPE Apps
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/elastic/point-explosion && python point-explosion.py -md 8 -ns 0
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/euler/point-explosion && python point-explosion.py -md 8 -ns 0
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide && python tafjord-landslide.py -md 8 -ns 0
+
+# step7: start
 
 # Generate runtime image
 
@@ -556,12 +578,17 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
     /root/Peano /root/Peano
 
 %environment
-    export LD_LIBRARY_PATH=/root/Peano/build/lib$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+
+%environment
     export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:/root/Peano/applications/exahype2/shallow-water/tafjord-landslide:$PATH
 %post
-    export LD_LIBRARY_PATH=/root/Peano/build/lib$LD_LIBRARY_PATH
-    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
     export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:/root/Peano/applications/exahype2/shallow-water/tafjord-landslide:$PATH
 
 # Libraries missing from CUDA runtime image
@@ -569,5 +596,6 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libcurl4 \
         libnuma1
     rm -rf /var/lib/apt/lists/*
