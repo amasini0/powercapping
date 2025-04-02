@@ -587,9 +587,9 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
     export PATH=/root/Peano/codegen/bin:$PATH
 
 %environment
-    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:/root/Peano/applications/exahype2/shallow-water/tafjord-landslide:$PATH
+    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:$PATH
 %post
-    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:/root/Peano/applications/exahype2/shallow-water/tafjord-landslide:$PATH
+    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:$PATH
 
 # Libraries missing from CUDA runtime image
 
@@ -599,3 +599,15 @@ From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180
         libcurl4 \
         libnuma1
     rm -rf /var/lib/apt/lists/*
+
+# Set workdir and entrypoint
+
+%post
+    cd /
+    echo '#!/bin/bash' > /root/runscript.sh
+    echo 'cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide' >> /root/runscript.sh
+    echo './TafjordLandslide.Release' >> /root/runscript.sh
+    chmod +x /root/runscript.sh
+
+%runscript
+    exec /root/runscript.sh

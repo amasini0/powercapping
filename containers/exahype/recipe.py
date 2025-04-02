@@ -459,7 +459,6 @@ Stage0 += shell(
         " && ".join(tafjord_landslide_build),
     ],
 )
-exahype_bindirs.append(tafjord_landslide_dir)
 
 # Set ExaHyPe environment
 exahype_env = {
@@ -502,4 +501,21 @@ Stage1 += bb.packages(
         "libcurl4",
         "libnuma1",
     ]
+)
+
+# Run Tafjord landslide by default
+Stage1 += comment("Set workdir and entrypoint")
+Stage1 += shell(
+    commands=[
+        "echo '#!/bin/bash' > {}/runscript.sh".format(peano_workspace),
+        "echo 'cd {0}/shallow-water/tafjord-landslide' >> {1}/runscript.sh".format(
+            exahype_prefix, peano_workspace
+        ),
+        "echo './TafjordLandslide.Release' >> {}/runscript.sh".format(peano_workspace),
+        "chmod +x {}/runscript.sh".format(peano_workspace),
+    ]
+)
+Stage1 += hpccm.primitives.runscript(
+    commands=["{}/runscript.sh".format(peano_workspace)],
+    _args=False,
 )
