@@ -11,3 +11,6 @@ Dockerfile
 
 # Exclude steps directory 
 steps/
+
+# Exclude input directory for SeisSol
+Turkey/
