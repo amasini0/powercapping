@@ -452,6 +452,7 @@ exahype_bindirs.append(euler_pe_dir)
 tafjord_landslide_dir = "{}/shallow-water/tafjord-landslide".format(exahype_prefix)
 tafjord_landslide_build = [
     "cd {}".format(tafjord_landslide_dir),
+    "sed -i 's/end_time=50.0,/end_time=6.0,/' tafjord-landslide.py",
     "python tafjord-landslide.py -md 8 -ns 0",
 ]
 Stage0 += shell(

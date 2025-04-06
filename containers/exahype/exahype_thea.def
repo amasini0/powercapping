@@ -394,7 +394,7 @@ Stage: devel
 
 %post
     cd /
-    cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide && python tafjord-landslide.py -md 8 -ns 0
+    cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide && sed -i 's/end_time=50.0,/end_time=6.0,/' tafjord-landslide.py && python tafjord-landslide.py -md 8 -ns 0
 
 # step7: start
 
