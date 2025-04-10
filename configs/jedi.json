@@ -10,7 +10,7 @@
     "tag_runtime": "12.5.1-runtime-ubuntu22.04",
     "digest_runtime": "sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390",
     "network_stack": {
-        "mlnx_ofed": "25.01-0.6.0.0",
+        "mlnx_ofed": "24.10-2.1.8.0",
         "knem": false,
         "xpmem": false,
         "gdrcopy": true,

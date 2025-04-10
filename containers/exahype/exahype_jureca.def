@@ -57,7 +57,7 @@ Stage: devel
 
 # Install network stack packages and OpenMPI
 
-# Mellanox OFED version 25.01-0.6.0.0
+# Mellanox OFED version 24.10-2.1.8.0
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -67,7 +67,7 @@ Stage: devel
     rm -rf /var/lib/apt/lists/*
 %post
     wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
-    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/25.01-0.6.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/24.10-2.1.8.0/ubuntu22.04/mellanox_mlnx_ofed.list
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ibverbs-providers \
@@ -382,7 +382,7 @@ From: docker.io/nvidia/cuda@sha256:c6ebc1a57c482b919e9ee8bfdc73e02cebf06309b39ab
         python3
     rm -rf /var/lib/apt/lists/*
 
-# Mellanox OFED version 25.01-0.6.0.0
+# Mellanox OFED version 24.10-2.1.8.0
 %post
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -392,7 +392,7 @@ From: docker.io/nvidia/cuda@sha256:c6ebc1a57c482b919e9ee8bfdc73e02cebf06309b39ab
     rm -rf /var/lib/apt/lists/*
 %post
     wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
-    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/25.01-0.6.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/24.10-2.1.8.0/ubuntu22.04/mellanox_mlnx_ofed.list
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ibverbs-providers \
