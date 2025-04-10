@@ -32,6 +32,12 @@ do
     step_start=${start_lines[$((i-1))]}
     step_end=${start_lines[$i]}
 
+    # Fix missing last line of last step
+    if [[ $i -eq ${#start_lines[@]} ]]
+    then 
+        step_end=$(($(wc -l $RECIPE_FILE | cut -d ' ' -f 1) + 1))
+    fi
+
     if [[ $i -eq 1 ]]
     then 
         # Copy bootstrap image from original file

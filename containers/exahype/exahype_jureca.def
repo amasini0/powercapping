@@ -1,0 +1,571 @@
+# NOTE: this definition file depends on features only available in
+# Singularity 3.2 and later.
+BootStrap: docker
+From: docker.io/nvidia/cuda@sha256:13381961419ea62f4417059d5e196f39f5f4965c22adae753c5eb3b53b417995
+Stage: devel
+%post
+    . /.singularity.d/env/10-docker*.sh
+
+# step1: start
+
+# Install build tools over base image
+
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-setuptools \
+        python3-venv \
+        python3-wheel
+    rm -rf /var/lib/apt/lists/*
+
+# CMake version 3.31.4
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-aarch64.sh
+    mkdir -p /usr/local
+    /bin/sh /var/tmp/cmake-3.31.4-linux-aarch64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.31.4-linux-aarch64.sh
+%environment
+    export PATH=/usr/local/bin:$PATH
+%post
+    export PATH=/usr/local/bin:$PATH
+
+# Git, Pkgconf
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git \
+        pkgconf
+    rm -rf /var/lib/apt/lists/*
+
+# step2: start
+
+# Install network stack packages and OpenMPI
+
+# Mellanox OFED version 25.01-0.6.0.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/25.01-0.6.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ibverbs-providers \
+        ibverbs-utils \
+        libibmad-dev \
+        libibmad5 \
+        libibumad-dev \
+        libibumad3 \
+        libibverbs-dev \
+        libibverbs1 \
+        librdmacm-dev \
+        librdmacm1
+    rm -rf /var/lib/apt/lists/*
+
+# GDRCOPY version 2.2
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/NVIDIA/gdrcopy/archive/v2.2.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v2.2.tar.gz -C /var/tmp -z
+    cd /var/tmp/gdrcopy-2.2
+    mkdir -p /usr/local/gdrcopy/include /usr/local/gdrcopy/lib
+    make prefix=/usr/local/gdrcopy lib lib_install
+    rm -rf /var/tmp/gdrcopy-2.2 /var/tmp/v2.2.tar.gz
+%environment
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+
+# UCX https://github.com/openucx/ucx.git v1.17.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        autoconf \
+        automake \
+        binutils-dev \
+        ca-certificates \
+        file \
+        git \
+        libnuma-dev \
+        libtool \
+        make \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.17.0 https://github.com/openucx/ucx.git ucx && cd -
+    cd /var/tmp/ucx
+    ./autogen.sh
+    cd /var/tmp/ucx &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-mt --enable-optimizations --with-cuda=/usr/local/cuda --with-gdrcopy=/usr/local/gdrcopy --with-rdmacm --with-verbs --without-knem --without-xpmem
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/ucx
+%environment
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+%post
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+
+# OpenMPI version 5.0.5
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        hwloc \
+        libnuma-dev \
+        make \
+        openssh-client \
+        perl \
+        tar \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://www.open-mpi.org/software/ompi/v5.0/downloads/openmpi-5.0.5.tar.bz2
+    mkdir -p /var/tmp && tar -x -f /var/tmp/openmpi-5.0.5.tar.bz2 -C /var/tmp -j
+    cd /var/tmp/openmpi-5.0.5 &&   ./configure --prefix=/usr/local/openmpi --disable-getpwuid --enable-orterun-prefix-by-default --with-cuda --with-pmix=internal --with-ucx=/usr/local/ucx --with-verbs
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/openmpi-5.0.5 /var/tmp/openmpi-5.0.5.tar.bz2
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+
+# step3: start
+
+# Enable OpenMP offload and SYCL support
+
+# https://github.com/llvm/llvm-project.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch llvmorg-18.1.8 https://github.com/llvm/llvm-project.git llvm-project && cd -
+    cd /var/tmp/llvm-project
+    echo 'Start stage 1 build ...'
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build /var/tmp/llvm-project/stage1-build --parallel 
+    echo 'Start stage 2 build ...'
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage2-build -DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang -DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake --build /var/tmp/llvm-project/stage2-build --parallel  --target install
+    rm -rf /var/tmp/llvm-project
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+
+# Boost version 1.86.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        libbz2-dev \
+        tar \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
+    mkdir -p /var/tmp && tar -x -f /var/tmp/boost_1_86_0.tar.bz2 -C /var/tmp -j
+    cd /var/tmp/boost_1_86_0 && ./bootstrap.sh --prefix=/usr/local/boost --with-libraries=fiber,context,atomic,filesystem --show-libraries
+    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=arm --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
+    rm -rf /var/tmp/boost_1_86_0.tar.bz2 /var/tmp/boost_1_86_0
+
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/boost/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/boost/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/boost/lib:$LIBRARY_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/boost/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/boost/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/boost/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/boost/lib:$LIBRARY_PATH
+
+# https://github.com/AdaptiveCpp/AdaptiveCpp.git
+%post
+    cd /
+    mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v24.10.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git AdaptiveCpp && cd -
+    mkdir -p /var/tmp/AdaptiveCpp/build && cd /var/tmp/AdaptiveCpp/build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local/acpp -DCMAKE_BUILD_TYPE=Release -DACPP_COMPILER_FEATURE_PROFILE=full /var/tmp/AdaptiveCpp
+    cmake --build /var/tmp/AdaptiveCpp/build --target all -- -j$(nproc)
+    cmake --build /var/tmp/AdaptiveCpp/build --target install -- -j$(nproc)
+    rm -rf /var/tmp/AdaptiveCpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+
+# step4: start
+
+# Install optional dependencies
+
+# HDF5 version 1.14.5
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        make \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://support.hdfgroup.org/releases/hdf5/v1_14/v1_14_5/downloads/hdf5-1.14.5.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hdf5-1.14.5.tar.gz -C /var/tmp -z
+    cd /var/tmp/hdf5-1.14.5 &&  CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/hdf5 --disable-cxx --disable-fortran --disable-java --enable-parallel --enable-shared --enable-threadsafe --enable-unsupported
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/hdf5-1.14.5 /var/tmp/hdf5-1.14.5.tar.gz
+%environment
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+%post
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+
+# NetCDF version 4.9.2
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        file \
+        libcurl4-openssl-dev \
+        m4 \
+        make \
+        wget \
+        zlib1g-dev
+    rm -rf /var/lib/apt/lists/*
+%post
+    cd /
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
+    mkdir -p /var/tmp && tar -x -f /var/tmp/netcdf-c-4.9.2.tar.gz -C /var/tmp -z
+    cd /var/tmp/netcdf-c-4.9.2 &&  CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 FC=mpifort ./configure --prefix=/usr/local/netcdf --disable-libxml2 --enable-shared
+    make -j$(nproc)
+    make -j$(nproc) install
+    rm -rf /var/tmp/netcdf-c-4.9.2 /var/tmp/netcdf-c-4.9.2.tar.gz
+%environment
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+%post
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/netcdf:$CMAKE_PREFIX_PATH
+    export PKG_CONFIG_PATH=/usr/local/netcdf/lib/pkgconfig:$PKG_CONFIG_PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/netcdf:$CMAKE_PREFIX_PATH
+    export PKG_CONFIG_PATH=/usr/local/netcdf/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# step5: start
+
+# Build Peano
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git-lfs
+    rm -rf /var/lib/apt/lists/*
+
+%post
+    cd /
+    git lfs install
+    mkdir -p /root && cd /root && git clone --branch muc/exahype-enclave-tasking --depth 1 https://gitlab.lrz.de/hpcsoftware/Peano.git Peano
+    cmake -S /root/Peano -B /root/Peano/build -DCMAKE_C_COMPILER=/usr/local/llvm/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm/bin/clang++ -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release -DENABLE_EXAHYPE=ON -DENABLE_LOADBALANCING=ON -DENABLE_BLOCKSTRUCTURED=ON -DUSE_CCACHE=OFF -DWITH_NETCDF=ON -DWITH_MPI=ON -DWITH_MULTITHREADING=omp -DWITH_GPU=omp -DWITH_USM=ON -DWITH_GPU_ARCH=sm_90
+    cmake --build /root/Peano/build --parallel
+    sed -i '8,10 D' /root/Peano/requirements.txt
+    python3 -m venv /root/Peano/codegen && . /root/Peano/codegen/bin/activate && pip install -e /root/Peano
+
+%environment
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+
+# step6: start
+
+# Build ExaHyPE Apps
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/elastic/point-explosion && python point-explosion.py -md 8 -ns 0
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/euler/point-explosion && python point-explosion.py -md 8 -ns 0
+
+%post
+    cd /
+    cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide && sed -i 's/end_time=50.0,/end_time=6.0,/' tafjord-landslide.py && python tafjord-landslide.py -md 8 -ns 0
+
+# step7: start
+
+# Generate runtime image
+
+BootStrap: docker
+From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390
+%post
+    . /.singularity.d/env/10-docker*.sh
+
+# Python
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3
+    rm -rf /var/lib/apt/lists/*
+
+# Mellanox OFED version 25.01-0.6.0.0
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget
+    rm -rf /var/lib/apt/lists/*
+%post
+    wget -qO - https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | apt-key add -
+    mkdir -p /etc/apt/sources.list.d && wget -q -nc --no-check-certificate -P /etc/apt/sources.list.d https://linux.mellanox.com/public/repo/mlnx_ofed/25.01-0.6.0.0/ubuntu22.04/mellanox_mlnx_ofed.list
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ibverbs-providers \
+        ibverbs-utils \
+        libibmad-dev \
+        libibmad5 \
+        libibumad-dev \
+        libibumad3 \
+        libibverbs-dev \
+        libibverbs1 \
+        librdmacm-dev \
+        librdmacm1
+    rm -rf /var/lib/apt/lists/*
+
+# GDRCOPY
+%files from devel
+    /usr/local/gdrcopy /usr/local/gdrcopy
+%environment
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+%post
+    export CPATH=/usr/local/gdrcopy/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/gdrcopy/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/gdrcopy/lib:$LIBRARY_PATH
+
+# UCX
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libbinutils
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/ucx /usr/local/ucx
+%environment
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+%post
+    export CPATH=/usr/local/ucx/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH
+    export PATH=/usr/local/ucx/bin:$PATH
+
+# OpenMPI
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        hwloc \
+        openssh-client
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/openmpi /usr/local/openmpi
+%environment
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH
+    export PATH=/usr/local/openmpi/bin:$PATH
+
+# https://github.com/llvm/llvm-project.git
+%files from devel
+    /usr/local/llvm /usr/local/llvm
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/llvm/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/llvm/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/llvm/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/llvm/lib:$LIBRARY_PATH
+    export PATH=/usr/local/llvm/bin:$PATH
+
+# Boost
+%files from devel
+    /usr/local/boost /usr/local/boost
+
+# https://github.com/AdaptiveCpp/AdaptiveCpp.git
+%files from devel
+    /usr/local/acpp /usr/local/acpp
+%environment
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+%post
+    export CMAKE_PREFIX_PATH=/usr/local/acpp/lib/cmake:$CMAKE_PREFIX_PATH
+    export CPATH=/usr/local/acpp/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/acpp/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/acpp/lib:$LIBRARY_PATH
+    export PATH=/usr/local/acpp/bin:$PATH
+
+# HDF5
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        zlib1g
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/hdf5 /usr/local/hdf5
+%environment
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+%post
+    export CPATH=/usr/local/hdf5/include:$CPATH
+    export HDF5_DIR=/usr/local/hdf5
+    export LD_LIBRARY_PATH=/usr/local/hdf5/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/hdf5/lib:$LIBRARY_PATH
+    export PATH=/usr/local/hdf5/bin:$PATH
+
+# NetCDF
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        zlib1g
+    rm -rf /var/lib/apt/lists/*
+%files from devel
+    /usr/local/netcdf /usr/local/netcdf
+%environment
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+%post
+    export CPATH=/usr/local/netcdf/include:$CPATH
+    export LD_LIBRARY_PATH=/usr/local/netcdf/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/netcdf/lib:$LIBRARY_PATH
+    export PATH=/usr/local/netcdf/bin:$PATH
+
+# Copy ExaHyPE build files and setup environment
+
+%files from devel
+    /root/Peano /root/Peano
+
+%environment
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+%post
+    export LD_LIBRARY_PATH=/root/Peano/build/lib:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/root/Peano/build/lib:$LIBRARY_PATH
+    export PATH=/root/Peano/codegen/bin:$PATH
+
+%environment
+    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:$PATH
+%post
+    export PATH=/root/Peano/applications/exahype2/elastic/point-explosion:/root/Peano/applications/exahype2/euler/point-explosion:$PATH
+
+# Libraries missing from CUDA runtime image
+
+%post
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libcurl4 \
+        libnuma1
+    rm -rf /var/lib/apt/lists/*
+
+# Set workdir and entrypoint
+
+%post
+    cd /
+    echo '#!/bin/bash' > /root/runscript.sh
+    echo 'cd /root/Peano/applications/exahype2/shallow-water/tafjord-landslide' >> /root/runscript.sh
+    echo './TafjordLandslide.Release' >> /root/runscript.sh
+    chmod +x /root/runscript.sh
+
+%runscript
+    exec /root/runscript.sh

@@ -1,0 +1,21 @@
+{
+    "arch": "aarch64",
+    "march": "neoverse_v2",
+    "cuda_arch": "90",
+    "base_image": "nvidia/cuda",
+    "base_os": "ubuntu22",
+    "cuda_version": "12.5",
+    "tag_devel": "12.5.1-devel-ubuntu22.04",
+    "digest_devel": "sha256:13381961419ea62f4417059d5e196f39f5f4965c22adae753c5eb3b53b417995",
+    "tag_runtime": "12.5.1-runtime-ubuntu22.04",
+    "digest_runtime": "sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390",
+    "network_stack": {
+        "mlnx_ofed": "25.01-0.6.0.0",
+        "knem": false,
+        "xpmem": false,
+        "gdrcopy": true,
+        "ucx": "1.17.0",
+        "pmix": "internal",
+        "ompi": "5.0.5"
+    }
+}
