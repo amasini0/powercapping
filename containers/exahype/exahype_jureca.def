@@ -1,7 +1,7 @@
 # NOTE: this definition file depends on features only available in
 # Singularity 3.2 and later.
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:13381961419ea62f4417059d5e196f39f5f4965c22adae753c5eb3b53b417995
+From: docker.io/nvidia/cuda@sha256:75be475d2cd39bdfd1a79e62b2a2f7ef2753e78b249c60eac0a82bd99bddd2e0
 Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
@@ -35,10 +35,10 @@ Stage: devel
     rm -rf /var/lib/apt/lists/*
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-aarch64.sh
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-x86_64.sh
     mkdir -p /usr/local
-    /bin/sh /var/tmp/cmake-3.31.4-linux-aarch64.sh --prefix=/usr/local --skip-license
-    rm -rf /var/tmp/cmake-3.31.4-linux-aarch64.sh
+    /bin/sh /var/tmp/cmake-3.31.4-linux-x86_64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.31.4-linux-x86_64.sh
 %environment
     export PATH=/usr/local/bin:$PATH
 %post
@@ -180,10 +180,10 @@ Stage: devel
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch llvmorg-18.1.8 https://github.com/llvm/llvm-project.git llvm-project && cd -
     cd /var/tmp/llvm-project
     echo 'Start stage 1 build ...'
-    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage1-build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
     cmake --build /var/tmp/llvm-project/stage1-build --parallel 
     echo 'Start stage 2 build ...'
-    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage2-build -DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang -DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
+    cmake -S /var/tmp/llvm-project/llvm -B /var/tmp/llvm-project/stage2-build -DCMAKE_C_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang -DCMAKE_CXX_COMPILER=/var/tmp/llvm-project/stage1-build/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr/local/llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;lld;polly" -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_OCAMLDOC=OFF -DLLVM_ENABLE_BINDINGS=OFF -DLLVM_ENABLE_DUMP=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=OFF -DLIBOMPTARGET_DEVICE_ARCHITECTURES=sm_90
     cmake --build /var/tmp/llvm-project/stage2-build --parallel  --target install
     rm -rf /var/tmp/llvm-project
 %environment
@@ -214,7 +214,7 @@ Stage: devel
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
     mkdir -p /var/tmp && tar -x -f /var/tmp/boost_1_86_0.tar.bz2 -C /var/tmp -j
     cd /var/tmp/boost_1_86_0 && ./bootstrap.sh --prefix=/usr/local/boost --with-libraries=fiber,context,atomic,filesystem --show-libraries
-    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=arm --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
+    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=x86 --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
     rm -rf /var/tmp/boost_1_86_0.tar.bz2 /var/tmp/boost_1_86_0
 
 %environment
@@ -371,7 +371,7 @@ Stage: devel
 # Generate runtime image
 
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390
+From: docker.io/nvidia/cuda@sha256:c6ebc1a57c482b919e9ee8bfdc73e02cebf06309b39abc11bfe4c2d74957acb8
 %post
     . /.singularity.d/env/10-docker*.sh
 

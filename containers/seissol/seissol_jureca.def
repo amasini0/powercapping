@@ -1,7 +1,7 @@
 # NOTE: this definition file depends on features only available in
 # Singularity 3.2 and later.
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:13381961419ea62f4417059d5e196f39f5f4965c22adae753c5eb3b53b417995
+From: docker.io/nvidia/cuda@sha256:75be475d2cd39bdfd1a79e62b2a2f7ef2753e78b249c60eac0a82bd99bddd2e0
 Stage: devel
 %post
     . /.singularity.d/env/10-docker*.sh
@@ -35,10 +35,10 @@ Stage: devel
     rm -rf /var/lib/apt/lists/*
 %post
     cd /
-    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-aarch64.sh
+    mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-x86_64.sh
     mkdir -p /usr/local
-    /bin/sh /var/tmp/cmake-3.31.4-linux-aarch64.sh --prefix=/usr/local --skip-license
-    rm -rf /var/tmp/cmake-3.31.4-linux-aarch64.sh
+    /bin/sh /var/tmp/cmake-3.31.4-linux-x86_64.sh --prefix=/usr/local --skip-license
+    rm -rf /var/tmp/cmake-3.31.4-linux-x86_64.sh
 %environment
     export PATH=/usr/local/bin:$PATH
 %post
@@ -233,7 +233,7 @@ Stage: devel
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2
     mkdir -p /var/tmp && tar -x -f /var/tmp/boost_1_86_0.tar.bz2 -C /var/tmp -j
     cd /var/tmp/boost_1_86_0 && ./bootstrap.sh --prefix=/usr/local/boost --with-libraries=fiber,context,atomic,filesystem --show-libraries
-    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=arm --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
+    ./b2 variant=release threading=multi link=shared visibility=hidden cxxflags="-std=c++17" address-model=64 architecture=x86 --with-fiber --with-context --with-atomic --with-filesystem --prefix=/usr/local/boost -j$(nproc) -q install
     rm -rf /var/tmp/boost_1_86_0.tar.bz2 /var/tmp/boost_1_86_0
 
 %environment
@@ -381,7 +381,7 @@ Stage: devel
     mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/xianyi/OpenBLAS/archive/v0.3.27.tar.gz
     mkdir -p /var/tmp && tar -x -f /var/tmp/v0.3.27.tar.gz -C /var/tmp -z
     cd /var/tmp/OpenBLAS-0.3.27
-    make TARGET=ARMV8 USE_OPENMP=1
+    make USE_OPENMP=1
     mkdir -p /usr/local/openblas
     cd /var/tmp/OpenBLAS-0.3.27
     make install PREFIX=/usr/local/openblas
@@ -540,7 +540,7 @@ Stage: devel
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone  https://github.com/libxsmm/libxsmm.git libxsmm && cd - && cd /var/tmp/libxsmm && git checkout 419f7ec32d5bb2004f8a4ff1cf3b93c32d4e1227 && cd -
     cd /var/tmp/libxsmm
-    make PREFIX=/usr/local/libxsmm PLATFORM=1 JIT=1 -j$(nproc) install-minimal
+    make PREFIX=/usr/local/libxsmm  -j$(nproc) install-minimal
     rm -rf /var/tmp/libxsmm
 %environment
     export CMAKE_PREFIX_PATH=/usr/local/libxsmm:$CMAKE_PREFIX_PATH
@@ -583,7 +583,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=neon -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O4 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=rome -DPRECISION=single -DORDER=4 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -592,7 +592,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=neon -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O5 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=rome -DPRECISION=single -DORDER=5 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -601,7 +601,7 @@ Stage: devel
 %post
     cd /
     mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch v1.3.0 --recursive https://github.com/SeisSol/SeisSol.git SeisSol && cd -
-    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=neon -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
+    mkdir -p /var/tmp/SeisSol/build && cd /var/tmp/SeisSol/build && LDFLAGS=-lcurl cmake -DCMAKE_INSTALL_PREFIX=/usr/local/seissol_O6 -DCMAKE_BUILD_TYPE=Release -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_80 -DHOST_ARCH=rome -DPRECISION=single -DORDER=6 /var/tmp/SeisSol
     cmake --build /var/tmp/SeisSol/build --target all -- -j$(nproc)
     cmake --build /var/tmp/SeisSol/build --target install -- -j$(nproc)
     rm -rf /var/tmp/SeisSol
@@ -611,7 +611,7 @@ Stage: devel
 # Generate runtime image
 
 BootStrap: docker
-From: docker.io/nvidia/cuda@sha256:fd99be9b4b86c542a463709fadc32737c0bbfb9d49180a6bf64dc0471c655390
+From: docker.io/nvidia/cuda@sha256:c6ebc1a57c482b919e9ee8bfdc73e02cebf06309b39abc11bfe4c2d74957acb8
 %post
     . /.singularity.d/env/10-docker*.sh
 
